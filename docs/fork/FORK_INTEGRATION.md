@@ -19,11 +19,14 @@ Este documento mapeia todos os pontos de enxerto (`// FORK:<feature>`) em arquiv
 | `app/build.gradle` | `// FORK:widget-screen` | Adiciona `implementation libs.viewpager2` |
 | `app/src/main/AndroidManifest.xml` | `<!-- FORK:fork-identity -->` | Define `android:label="@string/fork_app_name"` no serviço `MyAccessibilityService` |
 | `app/src/main/java/app/olauncher/data/Constants.kt` | `// FORK:fork-identity` | Adiciona `URL_FORK_GITHUB` e `URL_FORK_ISSUES` mantendo todas as URLs upstream intactas |
+| `app/src/main/java/app/olauncher/data/Prefs.kt` | `// FORK:widget-screen` | Expõe accessors tipados delegando para `ForkWidgetPrefs` (`widgetScreenPosition`, `allowMinWidth1`, `allowMinHeight1`, `widgetEntries`) |
+| `app/src/main/java/app/olauncher/ui/SettingsFragment.kt` | `// FORK:fork-identity`, `// FORK:widget-screen` | Delega para `ForkSettingsDelegate` injetando a seção `"Abacate Lançador"`, cabeçalho `fork_app_name` e bloqueio de swipe reservado |
 
 ### Overlays ativos em `app/src/fork/res/`
 
 | Recurso | Sobrescreve / Adiciona | Descrição |
 |---|---|---|
+| `app/src/fork/res/layout/fork_settings_section.xml` | Adiciona layout exclusivo do fork | Seção `"Abacate Lançador"` injetada dinamicamente em `SettingsFragment` sem modificar `fragment_settings.xml` |
 | `app/src/fork/res/values/strings.xml` | Sobrescreve `app_name` + adiciona `fork_*` | Define `app_name` como `@string/fork_label_name` (`"Lançador"`) e strings exclusivas do fork em inglês |
 | `app/src/fork/res/values-pt-rBR/strings.xml` | Adiciona `fork_*` (pt-BR) | Traduções em português brasileiro das strings exclusivas do fork |
 | `app/src/fork/res/xml/accessibility_service_config.xml` | Sobrescreve `res/xml/accessibility_service_config.xml` | Inclui os 4 pacotes (`app.olauncher.abacate`, `app.olauncher.abacate.debug`, `app.olauncher.debug`, `app.olauncher`) |

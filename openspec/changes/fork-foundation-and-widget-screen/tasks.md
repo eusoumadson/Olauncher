@@ -47,21 +47,21 @@ Antes de implementar, leia:
 1. `AGENTS.md` e `docs/agents/architecture.md` — encapsulamento em `Prefs`, MVVM e testes JUnit 4
 2. `openspec/changes/fork-foundation-and-widget-screen/specs/` e `openspec/changes/fork-foundation-and-widget-screen/design.md` — requisitos RIGID (RF-05, RF-07) e decisões D3/D6
 
-- [ ] T06 — Criar modelos de widget, `ForkWidgetPrefs` e acessores em `Prefs.kt`
+- [x] T06 — Criar modelos de widget, `ForkWidgetPrefs` e acessores em `Prefs.kt`
       Arquivos: `app/src/main/java/app/olauncher/fork/widgets/ForkWidgetModels.kt`, `app/src/main/java/app/olauncher/fork/widgets/ForkWidgetPrefs.kt`, `app/src/main/java/app/olauncher/data/Prefs.kt`, `app/src/test/java/app/olauncher/fork/widgets/ForkWidgetPrefsTest.kt`
       Mudança: Criar `WidgetScreenPosition` (`DISABLED`, `LEFT`, `RIGHT`), `ForkWidgetEntry` (`appWidgetId`, `colSpan`, `rowSpan`, `order`, `minColSpan`, `minRowSpan`, `resizeMode`) e `ForkWidgetPrefs` usando `SharedPreferences` + JSON puro (`org.json.JSONArray` / serializer puro testável na JVM) com defaults `DISABLED`, `allowMinWidth1 = false`, `allowMinHeight1 = false`; adicionar enxerto único `// FORK:widget-screen` em `Prefs.kt` expondo os accessors tipados sem poluir o arquivo upstream com lógica de serialização.
       Cobre: RF-05, RF-07, RF-08, AC-04, AC-06
       Acceptance criteria: Padrão de `widgetScreenPosition` é `DISABLED`, `allowMinWidth1` e `allowMinHeight1` iniciam `false`, e serialização/desserialização de `ForkWidgetEntry` preserva ordem, `appWidgetId` e spans sem perda de dados.
       Testes: `app/src/test/java/app/olauncher/fork/widgets/ForkWidgetPrefsTest.kt` — testar round-trip JSON, valores default e remoção/reordenação de entries.
 
-- [ ] T07 — Implementar motor `BentoGridLayoutPlanner` responsivo e suíte de testes JVM
+- [x] T07 — Implementar motor `BentoGridLayoutPlanner` responsivo e suíte de testes JVM
       Arquivos: `app/src/main/java/app/olauncher/fork/widgets/BentoGridLayoutPlanner.kt`, `app/src/test/java/app/olauncher/fork/widgets/BentoGridLayoutPlannerTest.kt`
       Mudança: Criar `BentoGridLayoutPlanner` em Kotlin puro (sem dependência de Android `View`) definindo breakpoints Apple (`< 600dp -> 4`, `600..839dp -> 6`, `>= 840dp -> 8` colunas), empacotamento *first-fit* em matriz de ocupação (preenchendo lacunas anteriores compatíveis sem sobreposição), clamp de spans com mínimo padrão `2x2` (ou `1` quando `allowMinWidth1` / `allowMinHeight1` estiver ativo) e tratamento de `RESIZE_NONE` (`isFixedSize = true`, centralizado na célula alocada).
       Cobre: RF-07, AC-06
       Acceptance criteria: `columnCountForWidthDp` retorna `4` para `360`, `6` para `700` e `8` para `900`; algoritmo *first-fit* produz zero sobreposições e zero lacunas órfãs anteriores que comportem itens subsequentes; itens `2x2` são respeitados por padrão e reduzidos a `1x` apenas quando habilitado; `RESIZE_NONE` sinaliza centralização sem redimensionamento.
       Testes: `app/src/test/java/app/olauncher/fork/widgets/BentoGridLayoutPlannerTest.kt` — cobrir 4/6/8 colunas, first-fit com preenchimento de lacunas, zero interseção, mínimos `2x2` vs `1x`, clamp em larguras extremas e `RESIZE_NONE`.
 
-- [ ] T08 — Implementar `ForkSwipePolicy`, seção `"Abacate Lançador"` e integração em `SettingsFragment`
+- [x] T08 — Implementar `ForkSwipePolicy`, seção `"Abacate Lançador"` e integração em `SettingsFragment`
       Arquivos: `app/src/main/java/app/olauncher/fork/settings/ForkSwipePolicy.kt`, `app/src/main/java/app/olauncher/fork/settings/ForkSettingsDelegate.kt`, `app/src/fork/res/layout/fork_settings_section.xml`, `app/src/fork/res/values/strings.xml`, `app/src/fork/res/values-pt-rBR/strings.xml`, `app/src/main/java/app/olauncher/ui/SettingsFragment.kt`, `app/src/test/java/app/olauncher/fork/settings/ForkSwipePolicyTest.kt`
       Mudança: Criar `ForkSwipePolicy` (funções puras resolvendo se swipe esquerdo/direito está reservado pela Tela de Widgets e qual app/label deve ser desabilitado); criar `fork_settings_section.xml` e `ForkSettingsDelegate` para injetar dinamicamente a seção `"Abacate Lançador"` em `SettingsFragment` (seletor de posição `Desativada`/`Esquerda`/`Direita`, toggles `allowMinWidth1`/`allowMinHeight1`, versão `BuildConfig.VERSION_NAME`, links `URL_FORK_GITHUB`/`URL_FORK_ISSUES` e atribuição upstream) além de atualizar o cabeçalho `olauncherHiddenApps` para `fork_app_name` e refletir o bloqueio em `populateSwipeApps` / `showAppListIfEnabled`; inserir enxertos mínimos `// FORK:fork-identity` / `// FORK:widget-screen` em `SettingsFragment.kt` preservando `fragment_settings.xml` e `layout-land/fragment_settings.xml` intocados.
       Cobre: RF-01, RF-03, RF-05, AC-01, AC-03, AC-04
