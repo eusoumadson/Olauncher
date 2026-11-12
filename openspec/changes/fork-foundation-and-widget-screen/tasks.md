@@ -6,35 +6,35 @@ Antes de implementar, leia:
 1. `AGENTS.md` e `docs/agents/architecture.md` — regras de arquitetura, licença GPLv3 e comandos de build/teste
 2. `openspec/changes/fork-foundation-and-widget-screen/proposal.md`, `openspec/changes/fork-foundation-and-widget-screen/specs/` e `openspec/changes/fork-foundation-and-widget-screen/design.md` — requisitos RIGID (RF-01..RF-04), cenários e decisões técnicas
 
-- [ ] T01 — Criar versionamento CalVer, Makefile e script de release
+- [x] T01 — Criar versionamento CalVer, Makefile e script de release
       Arquivos: `version.properties`, `Makefile`, `app/src/fork/tools/release.py`, `app/src/fork/tools/test_release.py`
       Mudança: Criar `version.properties` com `VERSION_CODE=116` e `VERSION_NAME=2026.11.12`; criar `Makefile` com alvos `.PHONY: release dry-run test install`; criar `app/src/fork/tools/release.py` suportando `--dry-run`, bump CalVer `vYYYY.MM.DD` + incremento de `VERSION_CODE`, leitura de notas em `CHANGELOG.md`, commit `chore(release): bump version to ...` e criação de tag `vYYYY.MM.DD`; adicionar testes unitários em Python cobrindo cálculo de versão e `--dry-run`.
       Cobre: RF-02, AC-02
       Acceptance criteria: `version.properties` contém `VERSION_CODE=116` e `VERSION_NAME=2026.11.12`; `Makefile` expõe `release`, `dry-run`, `test`, `install`; `python3 app/src/fork/tools/release.py --dry-run` e `python3 -m unittest app/src/fork/tools/test_release.py` retornam código `0` sem sujar o repositório Git.
       Testes: `app/src/fork/tools/test_release.py` — validar parsing de `version.properties`, bump CalVer e execução em `--dry-run`.
 
-- [ ] T02 — Configurar identidade dual, overlay `app/src/fork/res/` e dependências em `app/build.gradle`
+- [x] T02 — Configurar identidade dual, overlay `app/src/fork/res/` e dependências em `app/build.gradle`
       Arquivos: `gradle/libs.versions.toml`, `app/build.gradle`, `app/src/fork/res/values/strings.xml`, `app/src/fork/res/values-pt-rBR/strings.xml`, `app/src/fork/res/xml/accessibility_service_config.xml`, `app/src/main/AndroidManifest.xml`
       Mudança: Adicionar `androidx.viewpager2:viewpager2` em `gradle/libs.versions.toml` e `app/build.gradle`; configurar leitura de `version.properties` em `app/build.gradle`, `applicationIdSuffix = ".abacate"` em `defaultConfig`, `resValue` `fork_app_name = "Abacate Lançador"` e `fork_label_name = "Lançador"`, e `sourceSets` para `src/fork/res` (`debug` e `release`), tudo demarcado com `// FORK:fork-identity` / `// FORK:widget-screen`; criar `app/src/fork/res/values/strings.xml` sobrescrevendo `app_name` para `@string/fork_label_name` (sem duplicar `fork_*` de `resValue`) e definindo strings exclusivas do fork (espelhadas em `values-pt-rBR/strings.xml`); criar `app/src/fork/res/xml/accessibility_service_config.xml` com `android:packageNames="app.olauncher.abacate, app.olauncher.abacate.debug, app.olauncher.debug, app.olauncher"`; aplicar enxerto único `<!-- FORK:fork-identity -->` no serviço `MyAccessibilityService` em `app/src/main/AndroidManifest.xml` usando `android:label="@string/fork_app_name"`.
       Cobre: RF-01, RF-02, RF-03, AC-01, AC-03
       Acceptance criteria: `./gradlew assembleDebug` compila `app.olauncher.abacate.debug` com `versionCode 116` e `versionName "2026.11.12"`; manifesto mesclado resolve `<application android:label>` para `"Lançador"` e `MyAccessibilityService` para `"Abacate Lançador"` com os 4 package names configurados em `accessibility_service_config.xml`.
       Testes: `app/src/test/java/app/olauncher/fork/ForkBuildConfigTest.kt` — validar `BuildConfig.APPLICATION_ID == "app.olauncher.abacate.debug"`, `BuildConfig.VERSION_CODE == 116` e `BuildConfig.VERSION_NAME == "2026.11.12"`.
 
-- [ ] T03 — Adicionar constantes do fork em `Constants.kt` preservando URLs upstream
+- [x] T03 — Adicionar constantes do fork em `Constants.kt` preservando URLs upstream
       Arquivos: `app/src/main/java/app/olauncher/data/Constants.kt`, `app/src/test/java/app/olauncher/fork/ForkIdentityConstantsTest.kt`
       Mudança: Adicionar `URL_FORK_GITHUB = "https://github.com/eusoumadson/abacate-launcher"` e `URL_FORK_ISSUES = "https://github.com/eusoumadson/abacate-launcher/issues"` com comentário `// FORK:fork-identity` em `Constants.kt`, mantendo todas as constantes e URLs upstream (`URL_ABOUT_OLAUNCHER`, `URL_OLAUNCHER_GITHUB`, `URL_TWITTER_TANUJ`, `URL_OLAUNCHER_PRIVACY`) intactas.
       Cobre: RF-01, RF-03, AC-01, AC-03
       Acceptance criteria: `Constants.kt` possui `URL_FORK_GITHUB` e `URL_FORK_ISSUES` sob `// FORK:fork-identity` e preserva todas as URLs upstream originais sem modificação.
       Testes: `app/src/test/java/app/olauncher/fork/ForkIdentityConstantsTest.kt` — verificar valores das URLs do fork e presença intacta das URLs upstream.
 
-- [ ] T04 — Documentar governança Zero Lixo, catálogo do fork, `CHANGELOG.md` e `README.md`
+- [x] T04 — Documentar governança Zero Lixo, catálogo do fork, `CHANGELOG.md` e `README.md`
       Arquivos: `AGENTS.md`, `docs/agents/coding_guidelines.md`, `docs/fork/FORK_INTEGRATION.md`, `docs/fork/FORK_FEATURES.md`, `CHANGELOG.md`, `README.md`
       Mudança: Registrar a política de **Zero Lixo de Compatibilidade** e o protocolo de isolamento `// FORK:<feature>` + `app/src/fork/res/` em `AGENTS.md` e `docs/agents/coding_guidelines.md`; criar `docs/fork/FORK_INTEGRATION.md` (mapa de pontos de enxerto e roteiro `git fetch upstream` / merge) e `docs/fork/FORK_FEATURES.md` (catálogo inicial de `fork-identity` e `widget-screen`); criar `CHANGELOG.md` com entrada `2026.11.12`; atualizar `README.md` com badge/deep-link Obtainium para `app.olauncher.abacate`, licença GPLv3, créditos explícitos a `@tanujnotes`/Olauncher e guia de build local com Java 17.
       Cobre: RF-01, RF-02, RF-03, AC-01, AC-02, AC-03
       Acceptance criteria: Todos os documentos existem com seções completas, `README.md` contém o link Obtainium com `app.olauncher.abacate` e créditos ao Olauncher, e `LICENSE` permanece inalterada (GPLv3).
       Testes: `python3 app/src/fork/tools/release.py --dry-run` — confirmar leitura correta da seção `2026.11.12` do `CHANGELOG.md`.
 
-- [ ] T05 — Criar esteira CI/CD GitHub Actions e configurar remote `origin`
+- [x] T05 — Criar esteira CI/CD GitHub Actions e configurar remote `origin`
       Arquivos: `.github/workflows/build.yml`, `.github/workflows/release.yml`
       Mudança: Criar `.github/workflows/build.yml` disparado em `push` (`main`/`master`) e `pull_request` com JDK 17, cache Gradle e execução de `./gradlew assembleDebug --no-daemon` e `./gradlew testDebugUnitTest --no-daemon`; criar `.github/workflows/release.yml` disparado em tags `v*` compilando APK release assinado via GitHub Secrets, extraindo notas do `CHANGELOG.md` e publicando GitHub Release com `AbacateLauncher-${version}-release.apk`; executar `git remote set-url origin https://github.com/eusoumadson/abacate-launcher.git`.
       Cobre: RF-02, RF-04, AC-02

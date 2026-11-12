@@ -105,6 +105,8 @@ object Constants {
     const val URL_DEFAULT_LIGHT_WALLPAPER = "https://images.unsplash.com/photo-1515549832467-8783363e19b6"
     const val URL_DUCK_SEARCH = "https://duck.co/?q="
     const val URL_DIGITAL_WELLBEING_LEARN_MORE = "https://tanujnotes.substack.com/p/digital-wellbeing-app-on-android?utm_source=olauncher"
+    const val URL_FORK_GITHUB = "https://github.com/eusoumadson/abacate-launcher" // FORK:fork-identity
+    const val URL_FORK_ISSUES = "https://github.com/eusoumadson/abacate-launcher/issues" // FORK:fork-identity
 
     const val DIGITAL_WELLBEING_PACKAGE_NAME = "com.google.android.apps.wellbeing"
     const val DIGITAL_WELLBEING_ACTIVITY = "com.google.android.apps.wellbeing.settings.TopLevelSettingsActivity"

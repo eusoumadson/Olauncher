@@ -24,6 +24,10 @@ Observed in `app/src/main/java/app/olauncher/data/Prefs.kt`, `app/src/main/java/
 Guarantees unambiguous serialization boundaries when concatenating variable-length identifiers across package names, shortcut IDs, and user handles.
 Observed in `app/src/main/java/app/olauncher/data/ShortcutIdentity.kt:3-4` and `app/src/test/java/app/olauncher/data/ShortcutIdentityTest.kt:7-31`.
 
+### 6. Isolate fork code/resources and enforce Zero Compatibility Trash
+Keep all fork-exclusive Kotlin sources under `app/src/main/java/app/olauncher/fork/` and fork-exclusive resources under `app/src/fork/res/` (overlaying `src/main/res` via `debug` and `release` sourceSets). Shared upstream files may only contain single-line graft points marked `// FORK:<feature>` (or `<!-- FORK:<feature> -->` in XML / `# FORK:<feature>` in TOML) delegating via Delegate/Decorator patterns and registered in `docs/fork/FORK_INTEGRATION.md`.
+Under the **Zero Lixo de Compatibilidade** policy, do not retain dead code, deprecated shims, unused preference keys, or compatibility aliases after migrating behavior — delete obsolete paths cleanly in the same change.
+
 ## Related documents
 
 - [`domain_rules.md`](domain_rules.md) — Implementation details of search algorithms and shortcut formatting

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="app_name" translatable="false">@string/fork_label_name</string>
+
+    <string name="fork_section_title">Abacate Lançador</string>
+    <string name="fork_widget_screen">Widget screen</string>
+    <string name="fork_widget_position_disabled">Disabled</string>
+    <string name="fork_widget_position_left">Left</string>
+    <string name="fork_widget_position_right">Right</string>
+    <string name="fork_allow_min_width_1">Allow 1-column widget width</string>
+    <string name="fork_allow_min_height_1">Allow 1-row widget height</string>
+    <string name="fork_swipe_reserved_for_widgets">Reserved for Widget screen</string>
+    <string name="fork_add_widget_hint">Long press empty space to add a widget</string>
+    <string name="fork_remove_widget">Remove widget</string>
+    <string name="fork_github">Fork GitHub</string>
+    <string name="fork_issues">Report issue</string>
+    <string name="fork_upstream_credit">Based on Olauncher by @tanujnotes (GPLv3)</string>
+    <string name="fork_version_label">Version %1$s</string>
+</resources>

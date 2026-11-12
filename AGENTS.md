@@ -46,6 +46,11 @@
 - Never submit changes that break `./gradlew assembleDebug` or `./gradlew testDebugUnitTest` (`CONTRIBUTING.md`).
 - Never introduce dependencies or code incompatible with GNU GPLv3 licensing (`LICENSE`, `CONTRIBUTING.md`).
 
+### Fork Isolation & Zero Compatibility Trash Policy
+
+- **Isolamento do Fork**: Todo código exclusivo do fork deve residir em `app/src/main/java/app/olauncher/fork/` e todo recurso exclusivo em `app/src/fork/res/` (overlay `debug` e `release`). Arquivos compartilhados com o upstream só podem receber enxertos mínimos de linha única demarcados com `// FORK:<feature>` (ou `<!-- FORK:<feature> -->` em XML e `# FORK:<feature>` em TOML/YAML), usando os padrões Delegate/Decorator e catalogados em [docs/fork/FORK_INTEGRATION.md](docs/fork/FORK_INTEGRATION.md).
+- **Zero Lixo de Compatibilidade**: Nunca manter código morto, aliases legados, shims de retrocompatibilidade inúteis ou fallbacks órfãos após uma refatoração ou migração; ao substituir um fluxo ou recurso do fork, remova completamente os vestígios obsoletos no mesmo PR.
+
 ## 4. Setup, Troubleshooting and Tips
 
 - Prerequisites: JDK 17, Android SDK with API 36 platform and build-tools installed.
