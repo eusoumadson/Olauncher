@@ -16,3 +16,9 @@
 .externalNativeBuild
 .cxx
 google-services.json
+
+# Open Spec Harness (opsh)
+.phases/
+.opshrc
+.spec/features/*/.handoff/
+.skills/
