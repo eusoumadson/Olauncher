@@ -416,7 +416,7 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (forkWidgetPinDelegate.onActivityResult(requestCode, resultCode, data)) return // FORK:widget-screen
+        if (forkWidgetPinDelegate.onActivityResult(requestCode, resultCode, data)) { workspacePagerDelegate.showWidgetsScreen(smoothScroll = false); return } // FORK:widget-screen
         when (requestCode) {
             Constants.REQUEST_CODE_ENABLE_ADMIN -> {
                 if (resultCode == Activity.RESULT_OK)

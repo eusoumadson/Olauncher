@@ -89,6 +89,7 @@ class WorkspacePagerDelegate(
     private var currentDestinationId: Int? = navController.currentDestination?.id
     private var isWidgetEditInteractionActive: Boolean = false
     private var pagerAdapter: WorkspacePagerAdapter? = null
+    private var homePageContainer: FrameLayout? = null
 
     private val destinationChangedListener =
         NavController.OnDestinationChangedListener { _, destination, _ ->
@@ -147,6 +148,14 @@ class WorkspacePagerDelegate(
         }
     }
 
+    fun showWidgetsScreen(smoothScroll: Boolean = false) {
+        val position = currentPosition ?: widgetPrefs.widgetScreenPosition
+        val widgetsIndex = WorkspacePagerPolicy.widgetsPageIndex(position)
+        if (widgetsIndex >= 0 && binding.workspacePager.currentItem != widgetsIndex) {
+            binding.workspacePager.setCurrentItem(widgetsIndex, smoothScroll)
+        }
+    }
+
     private fun applyPosition(position: WidgetScreenPosition) {
         if (currentPosition == position) {
             updateUserInputEnabled()
@@ -156,24 +165,48 @@ class WorkspacePagerDelegate(
         isWidgetEditInteractionActive = false
 
         detachWidgetsFragment()
-        restoreNavHostToRoot()
+        binding.workspacePager.adapter = null
+        pagerAdapter = null
 
         if (!position.isEnabled) {
+            restoreNavHostToRoot()
+            homePageContainer = null
             binding.workspacePager.isUserInputEnabled = false
-            binding.workspacePager.adapter = null
-            pagerAdapter = null
             binding.workspacePager.visibility = View.GONE
             return
         }
 
+        val homeContainer = prepareHomePageContainer()
         val pages = WorkspacePagerPolicy.pagesFor(position)
-        val adapter = WorkspacePagerAdapter(pages)
+        val adapter = WorkspacePagerAdapter(pages, homeContainer)
         pagerAdapter = adapter
         binding.workspacePager.visibility = View.VISIBLE
         binding.workspacePager.offscreenPageLimit = 1
         binding.workspacePager.adapter = adapter
         binding.workspacePager.setCurrentItem(WorkspacePagerPolicy.homePageIndex(position), false)
         updateUserInputEnabled()
+    }
+
+    private fun prepareHomePageContainer(): FrameLayout {
+        val container = (homePageContainer ?: FrameLayout(activity)).apply {
+            (parent as? ViewGroup)?.removeView(this)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+        }
+        homePageContainer = container
+        if (navHostView.parent !== container) {
+            (navHostView.parent as? ViewGroup)?.removeView(navHostView)
+            container.addView(
+                navHostView,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        return container
     }
 
     private fun updateUserInputEnabled() {
@@ -218,20 +251,16 @@ class WorkspacePagerDelegate(
         }
     }
 
-    private fun attachHomePage(container: FrameLayout) {
-        if (navHostView.parent !== container) {
-            (navHostView.parent as? ViewGroup)?.removeView(navHostView)
-            container.addView(
-                navHostView,
-                ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                ),
-            )
+    private fun scheduleAttachWidgetsPage(container: FrameLayout) {
+        container.post {
+            if (container.isAttachedToWindow && currentPosition?.isEnabled == true) {
+                attachWidgetsPage(container)
+            }
         }
     }
 
     private fun attachWidgetsPage(container: FrameLayout) {
+        if (!container.isAttachedToWindow) return
         container.id = R.id.fork_widgets_page_container
         val fm = activity.supportFragmentManager
         if (fm.isDestroyed) return
@@ -262,6 +291,7 @@ class WorkspacePagerDelegate(
 
     private inner class WorkspacePagerAdapter(
         private val pages: List<WorkspacePage>,
+        private val homeContainer: FrameLayout,
     ) : RecyclerView.Adapter<WorkspacePageViewHolder>() {
 
         init {
@@ -275,26 +305,42 @@ class WorkspacePagerDelegate(
         override fun getItemViewType(position: Int): Int = pages[position].ordinal
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): WorkspacePageViewHolder {
-            val container = FrameLayout(parent.context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                )
+            val page = WorkspacePage.entries[viewType]
+            val container = when (page) {
+                WorkspacePage.HOME -> homeContainer.also {
+                    (it.parent as? ViewGroup)?.removeView(it)
+                }
+                WorkspacePage.WIDGETS -> FrameLayout(parent.context).apply {
+                    id = R.id.fork_widgets_page_container
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                }
             }
-            return WorkspacePageViewHolder(container).apply {
+            return WorkspacePageViewHolder(page, container).apply {
                 setIsRecyclable(false)
             }
         }
 
         override fun onBindViewHolder(holder: WorkspacePageViewHolder, position: Int) {
-            when (pages[position]) {
-                WorkspacePage.HOME -> attachHomePage(holder.container)
-                WorkspacePage.WIDGETS -> attachWidgetsPage(holder.container)
+            if (holder.page == WorkspacePage.WIDGETS && holder.container.isAttachedToWindow) {
+                scheduleAttachWidgetsPage(holder.container)
+            }
+        }
+
+        override fun onViewAttachedToWindow(holder: WorkspacePageViewHolder) {
+            super.onViewAttachedToWindow(holder)
+            if (holder.page == WorkspacePage.WIDGETS) {
+                scheduleAttachWidgetsPage(holder.container)
             }
         }
     }
 
-    private class WorkspacePageViewHolder(val container: FrameLayout) : RecyclerView.ViewHolder(container)
+    private class WorkspacePageViewHolder(
+        val page: WorkspacePage,
+        val container: FrameLayout,
+    ) : RecyclerView.ViewHolder(container)
 
     companion object {
         private const val PREFS_FILENAME = "app.olauncher"
