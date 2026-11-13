@@ -60,6 +60,7 @@ Catálogo verificado via `grep -rn "FORK:" app/src/main/ app/build.gradle gradle
 | `app/src/fork/res/layout/fork_settings_section.xml` | Adiciona layout exclusivo do fork | Seção `"Abacate Lançador"` injetada dinamicamente em `SettingsFragment` sem modificar `fragment_settings.xml` |
 | `app/src/fork/res/layout/fragment_widgets.xml` | Adiciona layout exclusivo do fork | Container transparente (`ScrollView` + `BentoGridLayoutView`) da Tela de Widgets sem botões estáticos |
 | `app/src/fork/res/drawable/fork_widget_edit_border.xml` | Adiciona drawable exclusivo do fork | Borda de seleção do card em modo edição usando tokens do tema |
+| `app/src/fork/res/drawable/fork_widget_remove_badge_bg.xml` | Adiciona drawable exclusivo do fork | Fundo circular de alto contraste do botão de remoção do widget em modo edição |
 | `app/src/fork/res/drawable/fork_widget_resize_handle.xml` | Adiciona drawable exclusivo do fork | Alça circular de redimensionamento na grade Bento usando tokens do tema |
 | `app/src/fork/res/values/ids.xml` | Adiciona IDs exclusivos do fork | Declara `@id/fork_widgets_page_container` para hospedar `WidgetsFragment` dentro do `ViewPager2` |
 | `app/src/fork/res/values/strings.xml` | Sobrescreve `app_name` + adiciona `fork_*` | Define `app_name` como `@string/fork_label_name` (`"Lançador"`) e strings exclusivas do fork em inglês |

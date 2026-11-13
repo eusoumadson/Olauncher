@@ -1,9 +1,12 @@
 package app.olauncher.fork.settings
 
 import android.content.Context
+import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
 import app.olauncher.BuildConfig
 import app.olauncher.R
 import app.olauncher.data.Constants
@@ -75,7 +78,7 @@ class ForkSettingsDelegate(
     }
 
     fun populateSwipeApps(binding: FragmentSettingsBinding) {
-        val reservedLabel = context.getString(R.string.fork_swipe_reserved_for_widgets)
+        val reservedLabel = context.getString(R.string.fork_swipe_reserved_short)
         val position = prefs.widgetScreenPosition
 
         val leftState = ForkSwipePolicy.resolveSwipeLeftDisplay(
@@ -96,9 +99,18 @@ class ForkSettingsDelegate(
 
         binding.swipeLeftApp.text = leftState.label
         binding.swipeLeftApp.setTextColor(if (leftState.isDimmed) dimmedColor else activeColor)
+        enableWrappedLabel(binding.swipeLeftApp)
 
         binding.swipeRightApp.text = rightState.label
         binding.swipeRightApp.setTextColor(if (rightState.isDimmed) dimmedColor else activeColor)
+        enableWrappedLabel(binding.swipeRightApp)
+    }
+
+    private fun enableWrappedLabel(valueView: TextView) {
+        val labelView = (valueView.parent as? ViewGroup)?.getChildAt(0) as? TextView ?: return
+        labelView.minLines = 1
+        labelView.maxLines = 2
+        labelView.ellipsize = TextUtils.TruncateAt.END
     }
 
     /**

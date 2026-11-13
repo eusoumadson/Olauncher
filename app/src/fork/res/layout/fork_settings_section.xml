@@ -129,7 +129,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
+        android:layout_marginStart="8dp"
         android:layout_marginTop="12dp"
         android:orientation="horizontal">
 
@@ -138,7 +138,9 @@
             style="@style/TextSmallBold"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:padding="8dp"
+            android:paddingVertical="8dp"
+            android:paddingStart="0dp"
+            android:paddingEnd="12dp"
             android:text="@string/fork_github" />
 
         <TextView
@@ -146,8 +148,9 @@
             style="@style/TextSmallBold"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:padding="8dp"
+            android:layout_marginStart="8dp"
+            android:paddingVertical="8dp"
+            android:paddingHorizontal="8dp"
             android:text="@string/fork_issues" />
     </LinearLayout>
 

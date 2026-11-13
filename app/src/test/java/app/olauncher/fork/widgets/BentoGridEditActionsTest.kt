@@ -2,6 +2,7 @@ package app.olauncher.fork.widgets
 
 import android.content.SharedPreferences
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -180,6 +181,94 @@ class BentoGridEditActionsTest {
         assertTrue(afterAllRemoved.isEmpty())
         assertTrue(prefs.getWidgets().isEmpty())
         assertEquals(listOf(20, 10, 30), deletedIds)
+    }
+
+    @Test
+    fun `drag swap hysteresis prevents oscillation on asymmetric cards until reversing 0_55 cells`() {
+        val placementsBeforeSwap = listOf(
+            WidgetPlacementOutput(
+                appWidgetId = 70,
+                column = 0,
+                row = 0,
+                colSpan = 4,
+                rowSpan = 2,
+                minColSpan = 4,
+                minRowSpan = 2,
+                centerInCell = false,
+                isFixedSize = false,
+                resizableHorizontally = true,
+                resizableVertically = false,
+            ),
+            WidgetPlacementOutput(
+                appWidgetId = 71,
+                column = 0,
+                row = 2,
+                colSpan = 4,
+                rowSpan = 6,
+                minColSpan = 4,
+                minRowSpan = 4,
+                centerInCell = false,
+                isFixedSize = false,
+                resizableHorizontally = true,
+                resizableVertically = true,
+            ),
+        )
+
+        val cellSize = 200f
+        val gap = 20f
+        val swapPointerY = 500f
+        val lock = BentoGridDragHysteresis.createLock(
+            placements = placementsBeforeSwap,
+            draggedAppWidgetId = 70,
+            targetAppWidgetId = 71,
+            pointerX = 400f,
+            pointerY = swapPointerY,
+            paddingLeft = 0f,
+            paddingTop = 0f,
+            cellSizePx = cellSize,
+            gapPx = gap,
+        )!!
+
+        // Continuing downward inside the swapped taller card must remain locked.
+        assertFalse(
+            BentoGridDragHysteresis.shouldAllowSwap(
+                lock = lock,
+                targetAppWidgetId = 71,
+                pointerX = 480f,
+                pointerY = 850f,
+                cellSizePx = cellSize,
+            )
+        )
+        // Small upward wobble < 0.55 * cellSize must also stay locked.
+        assertFalse(
+            BentoGridDragHysteresis.shouldAllowSwap(
+                lock = lock,
+                targetAppWidgetId = 71,
+                pointerX = 400f,
+                pointerY = swapPointerY - 50f,
+                cellSizePx = cellSize,
+            )
+        )
+        // Dragging deliberately back up >= 0.55 * cellSize unlocks reverse swap.
+        assertTrue(
+            BentoGridDragHysteresis.shouldAllowSwap(
+                lock = lock,
+                targetAppWidgetId = 71,
+                pointerX = 400f,
+                pointerY = swapPointerY - 120f,
+                cellSizePx = cellSize,
+            )
+        )
+        // Hovering a different card always allows swapping immediately.
+        assertTrue(
+            BentoGridDragHysteresis.shouldAllowSwap(
+                lock = lock,
+                targetAppWidgetId = 72,
+                pointerX = 400f,
+                pointerY = swapPointerY,
+                cellSizePx = cellSize,
+            )
+        )
     }
 
     private class FakeSharedPreferences : SharedPreferences {

@@ -43,12 +43,14 @@ object ForkWidgetPinPolicy {
         allowMinWidth1: Boolean,
         allowMinHeight1: Boolean,
         order: Int = 0,
+        targetCellWidth: Int = 0,
+        targetCellHeight: Int = 0,
     ): ForkWidgetEntry {
         val floorCol = if (allowMinWidth1) 1 else ForkWidgetEntry.DEFAULT_SPAN
         val floorRow = if (allowMinHeight1) 1 else ForkWidgetEntry.DEFAULT_SPAN
 
-        val rawCols = cellsForDp(minWidthDp)
-        val rawRows = cellsForDp(minHeightDp)
+        val rawCols = if (targetCellWidth > 0) targetCellWidth else cellsForDp(minWidthDp)
+        val rawRows = if (targetCellHeight > 0) targetCellHeight else cellsForDp(minHeightDp)
 
         val colSpan = maxOf(floorCol, rawCols).coerceIn(floorCol, MAX_INITIAL_COLS)
         val rowSpan = maxOf(floorRow, rawRows).coerceAtLeast(floorRow)
@@ -61,13 +63,13 @@ object ForkWidgetPinPolicy {
             isFixedSize -> colSpan
             !canResizeH -> colSpan
             minResizeWidthDp > 0 -> cellsForDp(minResizeWidthDp).coerceIn(1, colSpan)
-            else -> ForkWidgetEntry.DEFAULT_MIN_SPAN
+            else -> minOf(floorCol, colSpan)
         }
         val minRowSpan = when {
             isFixedSize -> rowSpan
             !canResizeV -> rowSpan
             minResizeHeightDp > 0 -> cellsForDp(minResizeHeightDp).coerceIn(1, rowSpan)
-            else -> ForkWidgetEntry.DEFAULT_MIN_SPAN
+            else -> minOf(floorRow, rowSpan)
         }
 
         return ForkWidgetEntry(
@@ -404,6 +406,16 @@ class ForkWidgetPinDelegate(
         val prefs = hostManager.widgetPrefs
         val existing = prefs.getWidgets()
         val nextOrder = (existing.maxOfOrNull { it.order }?.plus(1)) ?: 0
+        val targetCellWidth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            providerInfo.targetCellWidth
+        } else {
+            0
+        }
+        val targetCellHeight = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            providerInfo.targetCellHeight
+        } else {
+            0
+        }
         val entry = ForkWidgetPinPolicy.calculateInitialEntry(
             appWidgetId = appWidgetId,
             minWidthDp = providerInfo.minWidth,
@@ -414,6 +426,8 @@ class ForkWidgetPinDelegate(
             allowMinWidth1 = prefs.allowMinWidth1,
             allowMinHeight1 = prefs.allowMinHeight1,
             order = nextOrder,
+            targetCellWidth = targetCellWidth,
+            targetCellHeight = targetCellHeight,
         )
         prefs.upsertWidget(entry)
         pendingFlowCommitted = true

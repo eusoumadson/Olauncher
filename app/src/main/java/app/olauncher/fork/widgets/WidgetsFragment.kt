@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import app.olauncher.data.Prefs
 import app.olauncher.databinding.FragmentWidgetsBinding
 import app.olauncher.helper.dpToPx
 import app.olauncher.ui.BaseFragment
@@ -46,18 +47,12 @@ class WidgetsFragment : BaseFragment() {
             setHostViewFactory { ctx, _, _ -> ForkAppWidgetHostView(ctx) }
         }
 
-        val basePaddingPx = BASE_GRID_PADDING_DP.dpToPx()
-        ViewCompat.setOnApplyWindowInsetsListener(binding.bentoGridLayout) { grid, insets ->
-            val sysBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            grid.setPadding(
-                basePaddingPx + sysBars.left,
-                basePaddingPx + sysBars.top,
-                basePaddingPx + sysBars.right,
-                basePaddingPx + sysBars.bottom,
-            )
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            applyGridInsets(insets)
             insets
         }
-        ViewCompat.requestApplyInsets(binding.bentoGridLayout)
+        applyCurrentWindowInsets()
+        binding.root.post { applyCurrentWindowInsets() }
 
         binding.bentoGridLayout.apply {
             onEmptySpaceLongPressListener = {
@@ -90,7 +85,46 @@ class WidgetsFragment : BaseFragment() {
 
     override fun onResume() {
         super.onResume()
+        applyCurrentWindowInsets()
         renderWidgets()
+    }
+
+    private fun applyCurrentWindowInsets() {
+        val root = _binding?.root ?: return
+        val insets = ViewCompat.getRootWindowInsets(root)
+            ?: activity?.window?.decorView?.let { ViewCompat.getRootWindowInsets(it) }
+        applyGridInsets(insets)
+        ViewCompat.requestApplyInsets(root)
+    }
+
+    private fun applyGridInsets(insets: WindowInsetsCompat?) {
+        val grid = _binding?.bentoGridLayout ?: return
+        val basePaddingPx = BASE_GRID_PADDING_DP.dpToPx()
+        val visible = insets?.getInsets(
+            WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
+        )
+        val persistentMask = if (Prefs(requireContext()).showStatusBar) {
+            WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        } else {
+            WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.displayCutout()
+        }
+        val persistent = insets?.getInsetsIgnoringVisibility(persistentMask)
+        val topInset = maxOf(visible?.top ?: 0, persistent?.top ?: 0)
+        val bottomInset = maxOf(visible?.bottom ?: 0, persistent?.bottom ?: 0)
+        val leftInset = maxOf(visible?.left ?: 0, persistent?.left ?: 0)
+        val rightInset = maxOf(visible?.right ?: 0, persistent?.right ?: 0)
+        if (grid.paddingLeft != basePaddingPx + leftInset ||
+            grid.paddingTop != basePaddingPx + topInset ||
+            grid.paddingRight != basePaddingPx + rightInset ||
+            grid.paddingBottom != basePaddingPx + bottomInset
+        ) {
+            grid.setPadding(
+                basePaddingPx + leftInset,
+                basePaddingPx + topInset,
+                basePaddingPx + rightInset,
+                basePaddingPx + bottomInset,
+            )
+        }
     }
 
     override fun onPause() {

@@ -9,6 +9,7 @@
     <string name="fork_widget_position_right">Right</string>
     <string name="fork_allow_min_width_1">Allow 1-column widget width</string>
     <string name="fork_allow_min_height_1">Allow 1-row widget height</string>
+    <string name="fork_swipe_reserved_short">Widgets</string>
     <string name="fork_swipe_reserved_for_widgets">Reserved for Widget screen</string>
     <string name="fork_remove_widget">Remove widget</string>
     <string name="fork_github">Fork GitHub</string>

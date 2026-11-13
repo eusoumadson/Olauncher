@@ -10,6 +10,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import app.olauncher.R
 import app.olauncher.databinding.ActivityMainBinding
 import app.olauncher.fork.widgets.ForkWidgetPrefs
@@ -105,10 +106,23 @@ class WorkspacePagerDelegate(
             }
         }
 
+    private val pageChangeCallback = object : ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) {
+            val activePosition = currentPosition ?: widgetPrefs.widgetScreenPosition
+            val homeIndex = WorkspacePagerPolicy.homePageIndex(activePosition)
+            if (position == homeIndex) {
+                findWidgetsFragment()?.exitEditModeIfActive()
+                isWidgetEditInteractionActive = false
+                updateUserInputEnabled()
+            }
+        }
+    }
+
     private val lifecycleObserver = object : DefaultLifecycleObserver {
         override fun onDestroy(owner: LifecycleOwner) {
             navController.removeOnDestinationChangedListener(destinationChangedListener)
             sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
+            binding.workspacePager.unregisterOnPageChangeCallback(pageChangeCallback)
             owner.lifecycle.removeObserver(this)
         }
     }
@@ -116,6 +130,7 @@ class WorkspacePagerDelegate(
     init {
         detachStaleWidgetsFragment()
         binding.workspacePager.overScrollMode = View.OVER_SCROLL_NEVER
+        binding.workspacePager.registerOnPageChangeCallback(pageChangeCallback)
         navController.addOnDestinationChangedListener(destinationChangedListener)
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
         activity.lifecycle.addObserver(lifecycleObserver)
@@ -132,6 +147,11 @@ class WorkspacePagerDelegate(
 
     fun handleBackPressed(): Boolean {
         if (!isOnWidgetScreen()) return false
+        if (findWidgetsFragment()?.exitEditModeIfActive() == true) {
+            isWidgetEditInteractionActive = false
+            updateUserInputEnabled()
+            return true
+        }
         returnToHome(smoothScroll = true)
         return true
     }

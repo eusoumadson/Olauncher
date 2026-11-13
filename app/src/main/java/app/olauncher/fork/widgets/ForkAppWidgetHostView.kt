@@ -3,6 +3,7 @@ package app.olauncher.fork.widgets
 import android.annotation.SuppressLint
 import android.appwidget.AppWidgetHostView
 import android.content.Context
+import android.os.SystemClock
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -136,19 +137,23 @@ class ForkAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
 
     var isEditMode: Boolean = false
     var onWidgetLongPressListener: ((ForkAppWidgetHostView) -> Unit)? = null
+    private var isCancellingChildTouch = false
 
     private val longPressRunnable = Runnable {
         if (touchTracker.markLongPressTriggered()) {
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            parent?.requestDisallowInterceptTouchEvent(true)
+            cancelActiveChildTouch()
             onWidgetLongPressListener?.invoke(this)
         }
     }
 
-    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (isCancellingChildTouch) {
+            return super.dispatchTouchEvent(ev)
+        }
         if (isEditMode) {
             cancelPendingLongPress()
-            return true
+            return super.dispatchTouchEvent(ev)
         }
 
         when (ev.actionMasked) {
@@ -156,27 +161,30 @@ class ForkAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
                 cancelPendingLongPress()
                 touchTracker.onDown(ev.x, ev.y)
                 postDelayed(longPressRunnable, longPressTimeoutMs)
-                return false
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (touchTracker.longPressTriggered) {
-                    return true
-                }
                 if (touchTracker.onMove(ev.x, ev.y)) {
                     removeCallbacks(longPressRunnable)
                 }
-                return false
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 val triggered = touchTracker.longPressTriggered
                 cancelPendingLongPress()
-                return triggered
+                if (triggered) {
+                    return true
+                }
             }
-
-            else -> return false
         }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        if (isEditMode || touchTracker.longPressTriggered) {
+            return true
+        }
+        return false
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -187,15 +195,29 @@ class ForkAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
             ) {
                 cancelPendingLongPress()
             }
-            // Do not consume here so the parent widget card / BentoGridLayoutView handles edit gestures.
+            // Let the parent WidgetCardContainer handle edit drags while still rejecting inner clicks.
             return false
         }
-        return super.onTouchEvent(event)
+        val handled = super.onTouchEvent(event)
+        // Retain unconsumed ACTION_DOWN inside widget bounds so UP/CANCEL cancels pending long-press.
+        return handled || event.actionMasked == MotionEvent.ACTION_DOWN
     }
 
     override fun onDetachedFromWindow() {
         cancelPendingLongPress()
         super.onDetachedFromWindow()
+    }
+
+    private fun cancelActiveChildTouch() {
+        val now = SystemClock.uptimeMillis()
+        val cancelEvent = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+        isCancellingChildTouch = true
+        try {
+            super.dispatchTouchEvent(cancelEvent)
+        } finally {
+            isCancellingChildTouch = false
+            cancelEvent.recycle()
+        }
     }
 
     private fun cancelPendingLongPress() {

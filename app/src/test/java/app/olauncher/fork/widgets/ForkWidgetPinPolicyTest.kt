@@ -131,4 +131,39 @@ class ForkWidgetPinPolicyTest {
             )
         )
     }
+
+    @Test
+    fun `calculateInitialEntry honors targetCellWidth and targetCellHeight and respects 1x floor when minResize missing`() {
+        val targetSized = ForkWidgetPinPolicy.calculateInitialEntry(
+            appWidgetId = 41,
+            minWidthDp = 40,
+            minHeightDp = 40,
+            minResizeWidthDp = 0,
+            minResizeHeightDp = 0,
+            resizeMode = ForkWidgetEntry.RESIZE_BOTH,
+            allowMinWidth1 = true,
+            allowMinHeight1 = true,
+            targetCellWidth = 3,
+            targetCellHeight = 1,
+        )
+        assertEquals(3, targetSized.colSpan)
+        assertEquals(1, targetSized.rowSpan)
+        assertEquals(1, targetSized.minColSpan)
+        assertEquals(1, targetSized.minRowSpan)
+
+        val tinyNoMinResize = ForkWidgetPinPolicy.calculateInitialEntry(
+            appWidgetId = 42,
+            minWidthDp = 40,
+            minHeightDp = 40,
+            minResizeWidthDp = 0,
+            minResizeHeightDp = 0,
+            resizeMode = ForkWidgetEntry.RESIZE_BOTH,
+            allowMinWidth1 = true,
+            allowMinHeight1 = true,
+        )
+        assertEquals(1, tinyNoMinResize.colSpan)
+        assertEquals(1, tinyNoMinResize.rowSpan)
+        assertEquals(1, tinyNoMinResize.minColSpan)
+        assertEquals(1, tinyNoMinResize.minRowSpan)
+    }
 }

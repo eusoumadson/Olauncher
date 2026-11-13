@@ -3,6 +3,8 @@ package app.olauncher.fork.widgets
 import android.annotation.SuppressLint
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.Outline
 import android.graphics.RectF
 import android.os.Build
 import android.os.Bundle
@@ -14,12 +16,14 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import app.olauncher.R
 import app.olauncher.helper.dpToPx
+import app.olauncher.helper.getColorFromAttr
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -146,6 +150,72 @@ object BentoGridEditActions {
 }
 
 /**
+ * Pure Kotlin hysteresis lock preventing rapid back-and-forth swaps when dragging
+ * asymmetrically sized cards (for example a 4x2 card over a 4x6 card).
+ */
+data class DragSwapLock(
+    val targetAppWidgetId: Int,
+    val anchorX: Float,
+    val anchorY: Float,
+    val unitDirX: Float,
+    val unitDirY: Float,
+)
+
+object BentoGridDragHysteresis {
+    private const val REVERSE_UNLOCK_CELL_FRACTION = 0.55f
+
+    fun shouldAllowSwap(
+        lock: DragSwapLock?,
+        targetAppWidgetId: Int,
+        pointerX: Float,
+        pointerY: Float,
+        cellSizePx: Float,
+    ): Boolean {
+        if (lock == null || lock.targetAppWidgetId != targetAppWidgetId) return true
+        if (cellSizePx <= 0f) return true
+        val projection = (pointerX - lock.anchorX) * lock.unitDirX +
+            (pointerY - lock.anchorY) * lock.unitDirY
+        return projection <= -(cellSizePx * REVERSE_UNLOCK_CELL_FRACTION)
+    }
+
+    fun createLock(
+        placements: List<WidgetPlacementOutput>,
+        draggedAppWidgetId: Int,
+        targetAppWidgetId: Int,
+        pointerX: Float,
+        pointerY: Float,
+        paddingLeft: Float,
+        paddingTop: Float,
+        cellSizePx: Float,
+        gapPx: Float,
+    ): DragSwapLock? {
+        val dragged = placements.firstOrNull { it.appWidgetId == draggedAppWidgetId } ?: return null
+        val target = placements.firstOrNull { it.appWidgetId == targetAppWidgetId } ?: return null
+        val step = cellSizePx + gapPx
+        val draggedCenterX = paddingLeft + dragged.column * step +
+            (dragged.colSpan * cellSizePx + (dragged.colSpan - 1) * gapPx) / 2f
+        val draggedCenterY = paddingTop + dragged.row * step +
+            (dragged.rowSpan * cellSizePx + (dragged.rowSpan - 1) * gapPx) / 2f
+        val targetCenterX = paddingLeft + target.column * step +
+            (target.colSpan * cellSizePx + (target.colSpan - 1) * gapPx) / 2f
+        val targetCenterY = paddingTop + target.row * step +
+            (target.rowSpan * cellSizePx + (target.rowSpan - 1) * gapPx) / 2f
+
+        val dx = targetCenterX - draggedCenterX
+        val dy = targetCenterY - draggedCenterY
+        val len = hypot(dx.toDouble(), dy.toDouble()).toFloat()
+        if (len <= 0.001f) return null
+        return DragSwapLock(
+            targetAppWidgetId = targetAppWidgetId,
+            anchorX = pointerX,
+            anchorY = pointerY,
+            unitDirX = dx / len,
+            unitDirY = dy / len,
+        )
+    }
+}
+
+/**
  * Custom [ViewGroup] rendering widgets in a responsive Apple-style Bento Grid
  * ([BentoGridLayoutPlanner]) with gesture-only editing (long-press empty space to add,
  * long-press widget for drag-and-drop reorder, resize handles, and removal badge; tap outside to commit).
@@ -172,6 +242,7 @@ class BentoGridLayoutView @JvmOverloads constructor(
     private val cardByWidgetId = LinkedHashMap<Int, WidgetCardContainer>()
     private var activeDragWidgetId: Int? = null
     private var activeResizeWidgetId: Int? = null
+    private var dragSwapLock: DragSwapLock? = null
 
     var onEmptySpaceLongPressListener: (() -> Unit)? = null
     var onWidgetRemovedListener: ((Int) -> Unit)? = null
@@ -190,6 +261,8 @@ class BentoGridLayoutView @JvmOverloads constructor(
     init {
         isClickable = true
         isFocusable = true
+        clipChildren = false
+        clipToPadding = false
     }
 
     val isEditMode: Boolean
@@ -247,6 +320,10 @@ class BentoGridLayoutView @JvmOverloads constructor(
         val wasEditing = editStateMachine.isEditing
         editStateMachine.enterEditMode(appWidgetId)
         syncCardEditStates()
+        if (cardByWidgetId[appWidgetId]?.hasActivePointer() == true) {
+            parent?.requestDisallowInterceptTouchEvent(true)
+            onEditInteractionActiveChangedListener?.invoke(true)
+        }
         if (!wasEditing) {
             onEditModeChangedListener?.invoke(true)
         }
@@ -261,6 +338,10 @@ class BentoGridLayoutView @JvmOverloads constructor(
     private fun exitEditMode(persist: Boolean) {
         activeDragWidgetId = null
         activeResizeWidgetId = null
+        dragSwapLock = null
+        for (card in cardByWidgetId.values) {
+            card.resetDragState()
+        }
         onEditInteractionActiveChangedListener?.invoke(false)
         editStateMachine.exitEditMode()
         syncCardEditStates()
@@ -315,6 +396,7 @@ class BentoGridLayoutView @JvmOverloads constructor(
             val placement = placementById[widgetId] ?: continue
             val cardWidth = spanPixels(placement.colSpan, cellSize)
             val cardHeight = spanPixels(placement.rowSpan, cellSize)
+            card.prepareHostLayoutForMeasure(cardWidth, cardHeight, placement)
             card.measure(
                 MeasureSpec.makeMeasureSpec(cardWidth, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(cardHeight, MeasureSpec.EXACTLY),
@@ -350,6 +432,7 @@ class BentoGridLayoutView @JvmOverloads constructor(
             val width = spanPixels(placement.colSpan, cellSize)
             val height = spanPixels(placement.rowSpan, cellSize)
             card.layout(left, top, left + width, top + height)
+            card.syncDragTranslationAfterLayout()
 
             val widthDp = (width / density).roundToInt().coerceAtLeast(1)
             val heightDp = (height / density).roundToInt().coerceAtLeast(1)
@@ -417,8 +500,8 @@ class BentoGridLayoutView @JvmOverloads constructor(
     private fun findCardUnder(x: Float, y: Float): WidgetCardContainer? {
         for (card in cardByWidgetId.values) {
             if (card.isVisible &&
-                x >= card.left && x <= card.right &&
-                y >= card.top && y <= card.bottom
+                x >= card.x && x <= card.x + card.width &&
+                y >= card.y && y <= card.y + card.height
             ) {
                 return card
             }
@@ -441,10 +524,35 @@ class BentoGridLayoutView @JvmOverloads constructor(
             paddingTop = paddingTop.toFloat(),
             cellSizePx = lastCellSizePx,
             gapPx = gapPx.toFloat(),
-        ) ?: return
+        )
+        if (targetId == null) {
+            dragSwapLock = null
+            return
+        }
+        if (!BentoGridDragHysteresis.shouldAllowSwap(
+                lock = dragSwapLock,
+                targetAppWidgetId = targetId,
+                pointerX = pointerGridX,
+                pointerY = pointerGridY,
+                cellSizePx = lastCellSizePx,
+            )
+        ) {
+            return
+        }
 
         val reordered = BentoGridEditActions.reorderByDrop(entries, appWidgetId, targetId)
         if (reordered != entries) {
+            dragSwapLock = BentoGridDragHysteresis.createLock(
+                placements = currentPlan.placements,
+                draggedAppWidgetId = appWidgetId,
+                targetAppWidgetId = targetId,
+                pointerX = pointerGridX,
+                pointerY = pointerGridY,
+                paddingLeft = paddingLeft.toFloat(),
+                paddingTop = paddingTop.toFloat(),
+                cellSizePx = lastCellSizePx,
+                gapPx = gapPx.toFloat(),
+            )
             entries = reordered.toMutableList()
             requestLayout()
         }
@@ -503,14 +611,30 @@ class BentoGridLayoutView @JvmOverloads constructor(
         private var isEditing = false
         private var currentPlacement: WidgetPlacementOutput? = null
 
+        private var hasDragPointer = false
         private var dragStartRawX = 0f
         private var dragStartRawY = 0f
+        private var dragStartLeft = 0
+        private var dragStartTop = 0
+        private var lastDragRawX = 0f
+        private var lastDragRawY = 0f
         private var isDragging = false
+
+        private var lastDispatchedWidthDp = -1
+        private var lastDispatchedHeightDp = -1
+        private var lastDispatchedCentered: Boolean? = null
 
         init {
             clipChildren = false
             clipToPadding = false
 
+            val cornerRadiusPx = CARD_CORNER_RADIUS_DP.dpToPx().toFloat()
+            hostWrapper.outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
+                }
+            }
+            hostWrapper.clipToOutline = true
             addView(
                 hostWrapper,
                 LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
@@ -528,10 +652,11 @@ class BentoGridLayoutView @JvmOverloads constructor(
             )
 
             val badgeSize = REMOVE_BADGE_SIZE_DP.dpToPx()
-            val badgePadding = 5.dpToPx()
+            val badgePadding = 7.dpToPx()
             removeBadge.apply {
-                background = ContextCompat.getDrawable(context, R.drawable.bg_shade_circular)
-                setImageResource(R.drawable.ic_close)
+                background = ContextCompat.getDrawable(context, R.drawable.fork_widget_remove_badge_bg)
+                setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_close)?.mutate())
+                imageTintList = ColorStateList.valueOf(context.getColorFromAttr(R.attr.primaryColor))
                 setPadding(badgePadding, badgePadding, badgePadding, badgePadding)
                 contentDescription = context.getString(R.string.fork_remove_widget)
                 visibility = View.GONE
@@ -540,31 +665,71 @@ class BentoGridLayoutView @JvmOverloads constructor(
             addView(
                 removeBadge,
                 LayoutParams(badgeSize, badgeSize, Gravity.TOP or Gravity.END).apply {
-                    topMargin = 4.dpToPx()
-                    marginEnd = 4.dpToPx()
+                    topMargin = 6.dpToPx()
+                    marginEnd = 6.dpToPx()
                 },
             )
 
-            val handleSize = RESIZE_HANDLE_SIZE_DP.dpToPx()
-            configureResizeHandle(rightResizeHandle, handleSize, Gravity.END or Gravity.CENTER_VERTICAL, ResizeEdge.HORIZONTAL)
-            configureResizeHandle(bottomResizeHandle, handleSize, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, ResizeEdge.VERTICAL)
-            configureResizeHandle(cornerResizeHandle, handleSize, Gravity.BOTTOM or Gravity.END, ResizeEdge.BOTH)
+            val handleVisualSize = RESIZE_HANDLE_SIZE_DP.dpToPx()
+            configureResizeHandle(
+                handle = rightResizeHandle,
+                visualSizePx = handleVisualSize,
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL,
+                edge = ResizeEdge.HORIZONTAL,
+                padLeftDp = 12,
+                padTopDp = 8,
+                padRightDp = 3,
+                padBottomDp = 8,
+            )
+            configureResizeHandle(
+                handle = bottomResizeHandle,
+                visualSizePx = handleVisualSize,
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
+                edge = ResizeEdge.VERTICAL,
+                padLeftDp = 8,
+                padTopDp = 12,
+                padRightDp = 8,
+                padBottomDp = 3,
+            )
+            configureResizeHandle(
+                handle = cornerResizeHandle,
+                visualSizePx = handleVisualSize,
+                gravity = Gravity.BOTTOM or Gravity.END,
+                edge = ResizeEdge.BOTH,
+                padLeftDp = 12,
+                padTopDp = 12,
+                padRightDp = 3,
+                padBottomDp = 3,
+            )
         }
 
         @SuppressLint("ClickableViewAccessibility")
         private fun configureResizeHandle(
             handle: ImageView,
-            sizePx: Int,
+            visualSizePx: Int,
             gravity: Int,
             edge: ResizeEdge,
+            padLeftDp: Int,
+            padTopDp: Int,
+            padRightDp: Int,
+            padBottomDp: Int,
         ) {
             handle.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.fork_widget_resize_handle))
-            handle.scaleType = ImageView.ScaleType.CENTER
+            handle.scaleType = ImageView.ScaleType.FIT_CENTER
             handle.visibility = View.GONE
-            val touchPadding = 6.dpToPx()
-            handle.setPadding(touchPadding, touchPadding, touchPadding, touchPadding)
-            val totalSize = sizePx + touchPadding * 2
-            addView(handle, LayoutParams(totalSize, totalSize, gravity))
+            val padLeft = padLeftDp.dpToPx()
+            val padTop = padTopDp.dpToPx()
+            val padRight = padRightDp.dpToPx()
+            val padBottom = padBottomDp.dpToPx()
+            handle.setPadding(padLeft, padTop, padRight, padBottom)
+            addView(
+                handle,
+                LayoutParams(
+                    padLeft + visualSizePx + padRight,
+                    padTop + visualSizePx + padBottom,
+                    gravity,
+                ),
+            )
 
             var startRawX = 0f
             var startRawY = 0f
@@ -584,7 +749,8 @@ class BentoGridLayoutView @JvmOverloads constructor(
                         initialRowSpan = placement.rowSpan
                         activeResizeWidgetId = appWidgetId
                         editStateMachine.selectWidget(appWidgetId)
-                        parent?.requestDisallowInterceptTouchEvent(true)
+                        syncCardEditStates()
+                        handle.parent?.requestDisallowInterceptTouchEvent(true)
                         onEditInteractionActiveChangedListener?.invoke(true)
                         true
                     }
@@ -621,6 +787,32 @@ class BentoGridLayoutView @JvmOverloads constructor(
             }
         }
 
+        fun hasActivePointer(): Boolean = hasDragPointer
+
+        fun resetDragState() {
+            hasDragPointer = false
+            if (isDragging) {
+                isDragging = false
+            }
+            if (activeDragWidgetId == appWidgetId) {
+                activeDragWidgetId = null
+            }
+            translationX = 0f
+            translationY = 0f
+            translationZ = 0f
+            alpha = 1f
+            scaleX = 1f
+            scaleY = 1f
+        }
+
+        fun syncDragTranslationAfterLayout() {
+            if (!isDragging) return
+            val dx = lastDragRawX - dragStartRawX
+            val dy = lastDragRawY - dragStartRawY
+            translationX = (dragStartLeft + dx) - left
+            translationY = (dragStartTop + dy) - top
+        }
+
         fun setEditState(
             editing: Boolean,
             selected: Boolean,
@@ -633,7 +825,7 @@ class BentoGridLayoutView @JvmOverloads constructor(
             }
 
             borderOverlay.visibility = if (editing) View.VISIBLE else View.GONE
-            borderOverlay.alpha = if (selected) 1f else 0.7f
+            borderOverlay.alpha = if (selected) 1f else 0.5f
             removeBadge.visibility = if (editing) View.VISIBLE else View.GONE
 
             val showH = editing && placement != null && !placement.isFixedSize && placement.resizableHorizontally
@@ -643,39 +835,121 @@ class BentoGridLayoutView @JvmOverloads constructor(
             cornerResizeHandle.visibility = if (showH && showV) View.VISIBLE else View.GONE
         }
 
-        fun updateWidgetSize(widthDp: Int, heightDp: Int, placement: WidgetPlacementOutput) {
+        fun prepareHostLayoutForMeasure(
+            cardWidth: Int,
+            cardHeight: Int,
+            placement: WidgetPlacementOutput,
+        ) {
             val host = hostView as? ForkAppWidgetHostView ?: return
             val lp = host.layoutParams as? LayoutParams ?: return
+            val desiredW: Int
+            val desiredH: Int
             if (placement.centerInCell) {
                 val info = providerInfo
-                val targetW = info?.minWidth?.takeIf { it > 0 }?.dpToPx()?.coerceAtMost(measuredWidth)
+                desiredW = info?.minWidth?.takeIf { it > 0 }?.dpToPx()?.coerceAtMost(cardWidth)
                     ?: LayoutParams.WRAP_CONTENT
-                val targetH = info?.minHeight?.takeIf { it > 0 }?.dpToPx()?.coerceAtMost(measuredHeight)
+                desiredH = info?.minHeight?.takeIf { it > 0 }?.dpToPx()?.coerceAtMost(cardHeight)
                     ?: LayoutParams.WRAP_CONTENT
-                if (lp.width != targetW || lp.height != targetH || lp.gravity != Gravity.CENTER) {
-                    lp.width = targetW
-                    lp.height = targetH
-                    lp.gravity = Gravity.CENTER
-                    host.layoutParams = lp
-                }
             } else {
-                if (lp.width != LayoutParams.MATCH_PARENT || lp.height != LayoutParams.MATCH_PARENT) {
-                    lp.width = LayoutParams.MATCH_PARENT
-                    lp.height = LayoutParams.MATCH_PARENT
-                    lp.gravity = Gravity.CENTER
-                    host.layoutParams = lp
-                }
+                desiredW = LayoutParams.MATCH_PARENT
+                desiredH = LayoutParams.MATCH_PARENT
             }
+            if (lp.width != desiredW || lp.height != desiredH || lp.gravity != Gravity.CENTER) {
+                lp.width = desiredW
+                lp.height = desiredH
+                lp.gravity = Gravity.CENTER
+                host.layoutParams = lp
+            }
+        }
+
+        fun updateWidgetSize(widthDp: Int, heightDp: Int, placement: WidgetPlacementOutput) {
+            val host = hostView as? ForkAppWidgetHostView ?: return
+            val density = resources.displayMetrics.density.coerceAtLeast(1f)
+            val effectiveWidthDp = if (placement.centerInCell && host.measuredWidth > 0) {
+                (host.measuredWidth / density).roundToInt().coerceIn(1, widthDp)
+            } else {
+                widthDp
+            }
+            val effectiveHeightDp = if (placement.centerInCell && host.measuredHeight > 0) {
+                (host.measuredHeight / density).roundToInt().coerceIn(1, heightDp)
+            } else {
+                heightDp
+            }
+            if (effectiveWidthDp == lastDispatchedWidthDp &&
+                effectiveHeightDp == lastDispatchedHeightDp &&
+                placement.centerInCell == lastDispatchedCentered
+            ) {
+                return
+            }
+            lastDispatchedWidthDp = effectiveWidthDp
+            lastDispatchedHeightDp = effectiveHeightDp
+            lastDispatchedCentered = placement.centerInCell
 
             val options = Bundle()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 host.updateAppWidgetSize(
                     options,
-                    listOf(SizeF(widthDp.toFloat(), heightDp.toFloat())),
+                    listOf(SizeF(effectiveWidthDp.toFloat(), effectiveHeightDp.toFloat())),
                 )
             } else {
                 @Suppress("DEPRECATION")
-                host.updateAppWidgetSize(options, widthDp, heightDp, widthDp, heightDp)
+                host.updateAppWidgetSize(
+                    options,
+                    effectiveWidthDp,
+                    effectiveHeightDp,
+                    effectiveWidthDp,
+                    effectiveHeightDp,
+                )
+            }
+        }
+
+        override fun performClick(): Boolean {
+            return super.performClick()
+        }
+
+        override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+            if (activeResizeWidgetId != null) {
+                return false
+            }
+
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    if (isEditing && isTouchInEditControl(ev)) {
+                        hasDragPointer = false
+                        return false
+                    }
+
+                    dragStartRawX = ev.rawX
+                    dragStartRawY = ev.rawY
+                    dragStartLeft = left
+                    dragStartTop = top
+                    lastDragRawX = ev.rawX
+                    lastDragRawY = ev.rawY
+                    hasDragPointer = true
+
+                    if (!isEditing) return false
+
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    onEditInteractionActiveChangedListener?.invoke(true)
+                    return true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (!isEditing || !hasDragPointer || isTouchInEditControl(ev)) return false
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    onEditInteractionActiveChangedListener?.invoke(true)
+                    return true
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isEditing && hasDragPointer && !isTouchInEditControl(ev)) {
+                        return true
+                    }
+                    hasDragPointer = false
+                    return false
+                }
+
+                else -> return false
             }
         }
 
@@ -685,28 +959,42 @@ class BentoGridLayoutView @JvmOverloads constructor(
 
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    if (isTouchInChild(removeBadge, event) ||
-                        isTouchInChild(rightResizeHandle, event) ||
-                        isTouchInChild(bottomResizeHandle, event) ||
-                        isTouchInChild(cornerResizeHandle, event)
-                    ) {
+                    if (isTouchInEditControl(event)) {
                         return false
                     }
                     dragStartRawX = event.rawX
                     dragStartRawY = event.rawY
+                    dragStartLeft = left
+                    dragStartTop = top
+                    lastDragRawX = event.rawX
+                    lastDragRawY = event.rawY
+                    hasDragPointer = true
                     isDragging = false
                     editStateMachine.selectWidget(appWidgetId)
                     syncCardEditStates()
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    onEditInteractionActiveChangedListener?.invoke(true)
                     return true
                 }
 
                 MotionEvent.ACTION_MOVE -> {
+                    if (!hasDragPointer) {
+                        dragStartRawX = event.rawX
+                        dragStartRawY = event.rawY
+                        dragStartLeft = left
+                        dragStartTop = top
+                        hasDragPointer = true
+                    }
+                    lastDragRawX = event.rawX
+                    lastDragRawY = event.rawY
                     val dx = event.rawX - dragStartRawX
                     val dy = event.rawY - dragStartRawY
                     if (!isDragging && hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
                         isDragging = true
                         activeDragWidgetId = appWidgetId
+                        dragSwapLock = null
                         bringToFront()
+                        translationZ = DRAG_ELEVATION_DP.dpToPx().toFloat()
                         alpha = 0.85f
                         scaleX = 1.03f
                         scaleY = 1.03f
@@ -714,8 +1002,8 @@ class BentoGridLayoutView @JvmOverloads constructor(
                         onEditInteractionActiveChangedListener?.invoke(true)
                     }
                     if (isDragging) {
-                        translationX = dx
-                        translationY = dy
+                        translationX = (dragStartLeft + dx) - left
+                        translationY = (dragStartTop + dy) - top
                         val centerInGridX = left + translationX + width / 2f
                         val centerInGridY = top + translationY + height / 2f
                         handleCardDraggedTo(appWidgetId, centerInGridX, centerInGridY)
@@ -724,16 +1012,14 @@ class BentoGridLayoutView @JvmOverloads constructor(
                 }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (isDragging) {
-                        isDragging = false
-                        activeDragWidgetId = null
-                        translationX = 0f
-                        translationY = 0f
-                        alpha = 1f
-                        scaleX = 1f
-                        scaleY = 1f
-                        onEditInteractionActiveChangedListener?.invoke(false)
+                    val wasDragging = isDragging
+                    resetDragState()
+                    dragSwapLock = null
+                    onEditInteractionActiveChangedListener?.invoke(false)
+                    if (wasDragging) {
                         persistCurrentEntries()
+                    } else if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        performClick()
                     }
                     return true
                 }
@@ -741,6 +1027,12 @@ class BentoGridLayoutView @JvmOverloads constructor(
                 else -> return super.onTouchEvent(event)
             }
         }
+
+        private fun isTouchInEditControl(event: MotionEvent): Boolean =
+            isTouchInChild(removeBadge, event) ||
+                isTouchInChild(rightResizeHandle, event) ||
+                isTouchInChild(bottomResizeHandle, event) ||
+                isTouchInChild(cornerResizeHandle, event)
 
         private fun isTouchInChild(child: View, event: MotionEvent): Boolean {
             if (child.visibility != View.VISIBLE) return false
@@ -756,7 +1048,9 @@ class BentoGridLayoutView @JvmOverloads constructor(
 
     companion object {
         private const val GRID_GAP_DP = 12
-        private const val REMOVE_BADGE_SIZE_DP = 28
-        private const val RESIZE_HANDLE_SIZE_DP = 16
+        private const val CARD_CORNER_RADIUS_DP = 16
+        private const val DRAG_ELEVATION_DP = 8
+        private const val REMOVE_BADGE_SIZE_DP = 30
+        private const val RESIZE_HANDLE_SIZE_DP = 14
     }
 }
