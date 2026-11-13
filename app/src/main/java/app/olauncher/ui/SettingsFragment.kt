@@ -27,6 +27,7 @@ import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.DialogTextSizeBinding
 import app.olauncher.databinding.FragmentSettingsBinding
+import app.olauncher.fork.settings.ForkSettingsDelegate // FORK:widget-screen
 import app.olauncher.helper.appUsagePermissionGranted
 import app.olauncher.helper.createDialog
 import app.olauncher.helper.getColorFromAttr
@@ -50,6 +51,7 @@ import app.olauncher.listener.DeviceAdmin
 class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListener {
 
     private lateinit var prefs: Prefs
+    private lateinit var forkSettingsDelegate: ForkSettingsDelegate // FORK:widget-screen
     private lateinit var viewModel: MainViewModel
     private lateinit var deviceManager: DevicePolicyManager
     private lateinit var componentName: ComponentName
@@ -67,6 +69,7 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         prefs = Prefs(requireContext())
+        forkSettingsDelegate = ForkSettingsDelegate(requireContext(), prefs) // FORK:widget-screen
         viewModel = activity?.run {
             ViewModelProvider(this)[MainViewModel::class.java]
         } ?: throw Exception("Invalid Activity")
@@ -94,6 +97,7 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         populateActionHints()
         initClickListeners()
         initObservers()
+        forkSettingsDelegate.applyIdentityAndSection(binding) { populateSwipeApps() } // FORK:fork-identity
 
         if (showPentastic)
             binding.footer.text = getText(R.string.new_app_minimal_todo_lists)
@@ -155,8 +159,8 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
 
             R.id.dailyWallpaper -> removeWallpaper()
             R.id.appThemeText -> showAppThemeMenu(view, showSystem = true)
-            R.id.swipeLeftApp -> toggleSwipeLeft()
-            R.id.swipeRightApp -> toggleSwipeRight()
+            R.id.swipeLeftApp -> if (!forkSettingsDelegate.handleSwipeAppClickIfReserved(Constants.FLAG_SET_SWIPE_LEFT_APP)) toggleSwipeLeft() // FORK:widget-screen
+            R.id.swipeRightApp -> if (!forkSettingsDelegate.handleSwipeAppClickIfReserved(Constants.FLAG_SET_SWIPE_RIGHT_APP)) toggleSwipeRight() // FORK:widget-screen
             R.id.toggleLock -> startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
         return true
@@ -654,6 +658,7 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
             binding.swipeLeftApp.setTextColor(requireContext().getColorFromAttr(R.attr.primaryColorTrans50))
         if (!prefs.swipeRightEnabled)
             binding.swipeRightApp.setTextColor(requireContext().getColorFromAttr(R.attr.primaryColorTrans50))
+        forkSettingsDelegate.populateSwipeApps(binding) // FORK:widget-screen
     }
 
 //    private fun populateDigitalWellbeing() {
@@ -663,6 +668,7 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
 //    }
 
     private fun showAppListIfEnabled(flag: Int) {
+        if (forkSettingsDelegate.handleSwipeAppClickIfReserved(flag)) return // FORK:widget-screen
         if ((flag == Constants.FLAG_SET_SWIPE_LEFT_APP) and !prefs.swipeLeftEnabled) {
             requireContext().showToast(getString(R.string.long_press_to_enable))
             return

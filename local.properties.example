@@ -1,0 +1,14 @@
+## This file must *NOT* be checked into Version Control Systems,
+# as it contains information specific to your local configuration.
+#
+# Copy this file to `local.properties` at the repository root.
+
+# Required: path to the Android SDK on your machine
+sdk.dir=/path/to/Android/sdk
+
+# Optional: release APK signing configuration (overridden by environment variables if set)
+# When any property is omitted or the keystore file does not exist, release builds stay unsigned.
+#KEYSTORE_FILE=/path/to/release.keystore
+#KEYSTORE_PASSWORD=your_keystore_password
+#KEY_ALIAS=your_key_alias
+#KEY_PASSWORD=your_key_password

@@ -5,6 +5,9 @@ import android.content.SharedPreferences
 import android.view.Gravity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
+import app.olauncher.fork.widgets.ForkWidgetEntry // FORK:widget-screen
+import app.olauncher.fork.widgets.ForkWidgetPrefs // FORK:widget-screen
+import app.olauncher.fork.widgets.WidgetScreenPosition // FORK:widget-screen
 
 class Prefs(context: Context) {
     private val PREFS_FILENAME = "app.olauncher"
@@ -644,4 +647,18 @@ class Prefs(context: Context) {
     fun getAppRenameLabel(appPackage: String): String = prefs.getString(appPackage, "").toString()
 
     fun setAppRenameLabel(appPackage: String, renameLabel: String) = prefs.edit { putString(appPackage, renameLabel) }
+
+    val forkWidgetPrefs: ForkWidgetPrefs by lazy { ForkWidgetPrefs(prefs) } // FORK:widget-screen
+    var widgetScreenPosition: WidgetScreenPosition // FORK:widget-screen
+        get() = forkWidgetPrefs.widgetScreenPosition // FORK:widget-screen
+        set(value) { forkWidgetPrefs.widgetScreenPosition = value } // FORK:widget-screen
+    var allowMinWidth1: Boolean // FORK:widget-screen
+        get() = forkWidgetPrefs.allowMinWidth1 // FORK:widget-screen
+        set(value) { forkWidgetPrefs.allowMinWidth1 = value } // FORK:widget-screen
+    var allowMinHeight1: Boolean // FORK:widget-screen
+        get() = forkWidgetPrefs.allowMinHeight1 // FORK:widget-screen
+        set(value) { forkWidgetPrefs.allowMinHeight1 = value } // FORK:widget-screen
+    var widgetEntries: List<ForkWidgetEntry> // FORK:widget-screen
+        get() = forkWidgetPrefs.getWidgets() // FORK:widget-screen
+        set(value) { forkWidgetPrefs.saveWidgets(value) } // FORK:widget-screen
 }

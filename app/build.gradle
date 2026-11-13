@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
+def versionProps = new Properties() // FORK:fork-identity
+rootProject.file("version.properties").withInputStream { versionProps.load(it) } // FORK:fork-identity
+
 android {
     compileSdk 36
 
@@ -15,14 +18,22 @@ android {
 
     defaultConfig {
         applicationId "app.olauncher"
+        applicationIdSuffix ".abacate" // FORK:fork-identity
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 115
-        versionName "v6.11.3"
+        versionCode versionProps.getProperty("VERSION_CODE").toInteger() // FORK:fork-identity
+        versionName versionProps.getProperty("VERSION_NAME") // FORK:fork-identity
+        resValue "string", "fork_app_name", "Abacate Lançador" // FORK:fork-identity
+        resValue "string", "fork_label_name", "Lançador" // FORK:fork-identity
 
         resourceConfigurations += ["en", "ar", "cs", "da", "de", "el", "es-rES", "es-rUS", "fa", "fi", "fr", "he", "hi", "hr", "hu", "in", "it", "ja", "ko", "nb", "nl", "pl", "pt-rBR", "ro", "ru-rRU", "sv", "th", "tr", "uk", "vi", "zh", "zh-rTW"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    sourceSets { // FORK:fork-identity
+        debug.res.srcDirs += ['src/fork/res'] // FORK:fork-identity
+        release.res.srcDirs += ['src/fork/res'] // FORK:fork-identity
+    } // FORK:fork-identity
 
     buildTypes {
         release {
@@ -46,6 +57,9 @@ android {
         includeInBundle = true
     }
     namespace 'app.olauncher'
+    lint { // FORK:fork-identity
+        baseline = file("lint-baseline.xml") // FORK:fork-identity
+    } // FORK:fork-identity
 }
 
 dependencies {
@@ -67,6 +81,7 @@ dependencies {
 
     //Material dependency
     implementation libs.material
+    implementation libs.viewpager2 // FORK:widget-screen
 
     testImplementation libs.junit
 }

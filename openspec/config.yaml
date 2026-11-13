@@ -1,0 +1,16 @@
+schema: rigor-driven
+
+context: |
+  Idioma padrao dos artefatos: Portugues (pt-BR).
+  Stack detectada: Kotlin / Java (Gradle)
+  Comando de teste padrao: ./gradlew testDebugUnitTest
+  Comando de lint padrao: definido em AGENTS.md / docs/agents/coding_guidelines.md
+  Perfil Open Spec Harness: personal
+  Engine padrao: agy
+  Capability Policy: ignore_for_this_run (Desativada (perfil pessoal — sem burocracia de catalogo corporativo))
+
+  Fontes primarias de arquitetura e convencoes (leia antes de propor ou planejar):
+  - AGENTS.md (ou CLAUDE.md) na raiz do repositorio
+  - docs/agents/architecture.md, docs/agents/coding_guidelines.md, docs/agents/domain_rules.md (gerados por /opsh:ai-context)
+  - openspec/specs/ (especificacoes vivas do sistema)
+  - .skills/*/SKILL.md (habilidades e diretrizes arquiteturais locais, se presentes)

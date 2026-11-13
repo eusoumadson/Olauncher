@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fork_section_title">Abacate Lançador</string>
+    <string name="fork_widget_screen">Tela de Widgets</string>
+    <string name="fork_widget_position_disabled">Desativada</string>
+    <string name="fork_widget_position_left">Esquerda</string>
+    <string name="fork_widget_position_right">Direita</string>
+    <string name="fork_allow_min_width_1">Permitir largura mínima de 1 coluna</string>
+    <string name="fork_allow_min_height_1">Permitir altura mínima de 1 linha</string>
+    <string name="fork_swipe_reserved_short">Widgets</string>
+    <string name="fork_swipe_reserved_for_widgets">Reservado para a Tela de Widgets</string>
+    <string name="fork_remove_widget">Remover widget</string>
+    <string name="fork_github">GitHub do Fork</string>
+    <string name="fork_issues">Reportar problema</string>
+    <string name="fork_upstream_credit">Baseado no Olauncher por @tanujnotes (GPLv3)</string>
+    <string name="fork_version_label">Versão %1$s</string>
+</resources>

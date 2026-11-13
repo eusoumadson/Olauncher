@@ -30,6 +30,8 @@ import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.FragmentHomeBinding
+import app.olauncher.fork.pager.ForkHomeTouchDecorator // FORK:widget-screen
+import app.olauncher.fork.settings.ForkSwipePolicy // FORK:widget-screen
 import app.olauncher.helper.appUsagePermissionGranted
 import app.olauncher.helper.dpToPx
 import app.olauncher.helper.expandNotificationDrawer
@@ -220,6 +222,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         binding.homeApp6.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp6))
         binding.homeApp7.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp7))
         binding.homeApp8.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp8))
+        ForkHomeTouchDecorator.decorate(binding, context, ::getSwipeGestureListener, ::getViewSwipeTouchListener) // FORK:widget-screen
     }
 
     private fun initClickListeners() {
@@ -509,6 +512,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun openSwipeRightApp() {
         if (!prefs.swipeRightEnabled) return
+        if (!ForkSwipePolicy.canOpenSwipeRightApp(prefs.widgetScreenPosition, prefs.swipeRightEnabled)) return // FORK:widget-screen
         launchAppOrShortcut(
             appName = prefs.appNameSwipeRight,
             packageName = prefs.appPackageSwipeRight,
@@ -522,6 +526,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun openSwipeLeftApp() {
         if (!prefs.swipeLeftEnabled) return
+        if (!ForkSwipePolicy.canOpenSwipeLeftApp(prefs.widgetScreenPosition, prefs.swipeLeftEnabled)) return // FORK:widget-screen
         launchAppOrShortcut(
             appName = prefs.appNameSwipeLeft,
             packageName = prefs.appPackageSwipeLeft,

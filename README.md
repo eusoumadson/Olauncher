@@ -1,43 +1,57 @@
-![Olauncher](https://repository-images.githubusercontent.com/278638069/db0acb80-661b-11eb-803e-926cae5dccb4)
+# Abacate Lançador
 
+> **Nota:** Este projeto é um fork do [Olauncher](https://github.com/tanujnotes/Olauncher), criado originalmente por [@tanujnotes](https://x.com/tanujnotes). O fork é mantido sob a mesma licença **GNU GPLv3**, preservando o minimalismo, código aberto e ausência total de anúncios ou rastreamento.
 
-# Olauncher | Minimal AF Launcher
-AF stands for Ad-Free! :D
+O **Abacate Lançador** (`app.olauncher.abacate`) é um launcher minimalista, ad-free e de código aberto para Android, preparado para coexistir lado a lado com o Olauncher original e evoluir com recursos isolados do fork.
 
-[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
-    alt="Get it on Play Store"
-    height="80" align="middle">](https://play.google.com/store/apps/details?id=app.olauncher)
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
-    alt="Get it on F-Droid"
-    height="80" align="middle">](https://f-droid.org/packages/app.olauncher)
-[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroidButtonGreyBorder_nofont.png"
-    alt="Get it on IzzyOnDroid"
-    height="54" hspace="13" align="middle">](https://apt.izzysoft.de/packages/app.olauncher)
+## Instalação e Atualizações (Obtainium)
 
-#### Install using [Play Store,](https://play.google.com/store/apps/details?id=app.olauncher) [F-Droid,](https://f-droid.org/packages/app.olauncher) [IzzyOnDroid](https://apt.izzysoft.de/packages/app.olauncher) or the [latest APK.](https://github.com/tanujnotes/Olauncher/releases/)
+Você pode instalar e receber atualizações diretamente das GitHub Releases usando o [Obtainium](https://github.com/ImranR98/Obtainium):
 
-To maintain the simplicity of the launcher, a few niche features are available but hidden.
+[![Get it on Obtainium](https://img.shields.io/badge/Obtainium-abacate--launcher-4CAF50?style=for-the-badge)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/eusoumadson/abacate-launcher)
 
-Please check out the **[About](https://tanujnotes.substack.com/p/olauncher-minimal-af-launcher?utm_source=github)** page in the Olauncher settings for a complete list of features and **FAQs**.
+- **Repositório:** `https://github.com/eusoumadson/abacate-launcher`
+- **Package ID (Release):** `app.olauncher.abacate`
+- **Package ID (Debug):** `app.olauncher.abacate.debug`
+- **Deep-link Obtainium:** `obtainium://add/https://github.com/eusoumadson/abacate-launcher`
 
-##
+## Build Local e Testes
 
-License: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
+### Pré-requisitos
+- **Java 17** (JVM target 17)
+- **Android SDK** com `compileSdk 36` / `targetSdk 36` (`minSdk 24`)
+- **Python 3** (para o script de release CalVer e testes unitários do tooling)
 
-Developer: [@tanujnotes](https://x.com/tanujnotes)
+### Comandos
 
-##
+```sh
+# Compilar APK debug (app.olauncher.abacate.debug)
+./gradlew assembleDebug --no-daemon
 
-### Other apps from team Olauncher:
+# Rodar testes unitários JVM (JUnit 4)
+./gradlew testDebugUnitTest --no-daemon
 
-- [Pro Launcher](https://play.google.com/store/apps/details?id=app.prolauncher) - Pro version of Olauncher with extra features like widgets, weather, folders, etc.
+# Rodar suíte completa (Python + Gradle) via Makefile
+make test
 
-- [Note to Self](https://play.google.com/store/apps/details?id=com.makenotetoself) - Free and [open source](https://github.com/jeerovan/ntsapp) notes app with chat like interface and end-to-end encryption.
+# Simular bump de versão CalVer sem alterar o Git
+make dry-run
+```
 
-- [Pentastic](https://play.google.com/store/apps/details?id=app.pentastic) - Free and [open source](https://github.com/tanujnotes/Pentastic). A minimal tasks, notes and reminders app.
+## Governança do Fork
 
-- [Supernova](https://github.com/tanujnotes/Supernova) - Free and [open source](https://github.com/tanujnotes/Supernova) alternative of Nova Launcher.
+- O código exclusivo do fork fica isolado em `app/src/main/java/app/olauncher/fork/` e os recursos em `app/src/fork/res/`.
+- Detalhes sobre pontos de enxerto (`// FORK:<feature>`) e sincronização com o upstream estão em [docs/fork/FORK_INTEGRATION.md](docs/fork/FORK_INTEGRATION.md) e [docs/fork/FORK_FEATURES.md](docs/fork/FORK_FEATURES.md).
 
-##
+## Licença e Créditos
 
-Thank you!
+- **Licença:** [GNU General Public License v3.0 (GPLv3)](LICENSE)
+- **Projeto Original / Upstream:** [tanujnotes/Olauncher](https://github.com/tanujnotes/Olauncher)
+- **Autor Original:** [@tanujnotes](https://x.com/tanujnotes)
+
+### Outros projetos da equipe do Olauncher original
+
+- [Pro Launcher](https://play.google.com/store/apps/details?id=app.prolauncher) - Versão Pro do Olauncher com widgets, clima, pastas, etc.
+- [Note to Self](https://play.google.com/store/apps/details?id=com.makenotetoself) - App de anotações gratuito e [código aberto](https://github.com/jeerovan/ntsapp).
+- [Pentastic](https://play.google.com/store/apps/details?id=app.pentastic) - App minimalista de tarefas e lembretes gratuito e [código aberto](https://github.com/tanujnotes/Pentastic).
+- [Supernova](https://github.com/tanujnotes/Supernova) - Alternativa [open source](https://github.com/tanujnotes/Supernova) ao Nova Launcher.
