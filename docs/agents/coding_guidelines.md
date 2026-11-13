@@ -4,41 +4,27 @@
 
 ## AS IS — Current state
 
-### 1. Fork isolation via packages, resource overlays, and FORK markers
+### 1. Fork isolation via grafts
 
-Exclusive fork code lives in `app/src/main/java/app/olauncher/fork/`, release tooling in `app/src/fork/tools/`, and resource overrides in `app/src/fork/res/` via `sourceSets` in `app/build.gradle` rather than duplicating files in `app/src/main/res/`. Shared upstream files receive single-line or minimal blocks tagged with `// FORK:<feature>` (Kotlin/Gradle), `<!-- FORK:<feature> -->` (XML), or `# FORK:<feature>` (TOML), cataloged in `docs/fork/FORK_INTEGRATION.md`.
+Fork code lives in `app/src/main/java/app/olauncher/fork/`; shared files get single-line `FORK:<feature>` markers (`docs/fork/FORK_INTEGRATION.md`).
 
-- Observed in: `app/build.gradle`, `gradle/libs.versions.toml`, `app/src/main/AndroidManifest.xml`, `MainActivity.kt`, `HomeFragment.kt`, `SettingsFragment.kt`, `PinItemActivity.kt`, `Prefs.kt`, `Constants.kt`.
-- Policy: Zero compatibility trash — no dead shims, legacy aliases, or orphan fallbacks (`docs/fork/FORK_INTEGRATION.md`, `AGENTS.md`).
+### 2. Pure-Kotlin policy objects
 
-### 2. Pure Kotlin policy extraction for JVM unit testing
+Decision logic is Android-free objects so JVM tests cover it: `ForkSwipePolicy`, `WorkspacePagerPolicy`, `BentoGridLayoutPlanner`, `ForkWidgetEntryJson` (hand-rolled JSON, no `org.json`). Tests in `app/src/test/java/app/olauncher/fork/`.
 
-Non-trivial layout, policy, state machine, and serialization logic is extracted into pure Kotlin `object`s and classes with zero Android framework dependencies (`Context`, `View`, `org.json`) so they run directly on the JVM under JUnit 4 without Robolectric or mocking frameworks.
+### 3. SharedPreferences property delegates
 
-- Observed in: `BentoGridLayoutPlanner`, `BentoGridEditActions`, `ForkWidgetEntryJson`, `ForkWidgetHostCoordinator`, `ForkWidgetPinPolicy`, `ForkWidgetEditStateMachine`, `ForkLongPressTouchTracker`, `WorkspacePagerPolicy`, `ForkSwipePolicy`, `AppSearchMatcher`, `shortcutIdentity`.
-- Enforcement: `./gradlew testDebugUnitTest --no-daemon` and `python3 -m unittest app/src/fork/tools/test_release.py` executed in `.github/workflows/build.yml` and `Makefile`.
+`Prefs` exposes typed `var` with `prefs.edit { ... }`; fork keys prefixed `FORK_` in `ForkWidgetPrefs`.
 
-### 3. ViewBinding and SharedPreferences property delegation
+### 4. LiveData + viewModelScope
 
-Activities, fragments, and RecyclerView adapters bind views exclusively via generated ViewBinding classes (`ActivityMainBinding`, `FragmentHomeBinding`, `FragmentSettingsBinding`, `FragmentWidgetsBinding`, `ForkSettingsSectionBinding`, `AdapterAppDrawerBinding`, `AdapterPrivateSpaceHeaderBinding`), and persistent settings are wrapped in typed properties on `Prefs` and `ForkWidgetPrefs` using `androidx.core.content.edit`.
+`MainViewModel` exposes `MutableLiveData` (e.g. `privateSpaceApps`); coroutines via `viewModelScope`; `CoroutineWorker` for background.
 
-- Enforcement: `buildFeatures { viewBinding = true }` in `app/build.gradle`.
-- Observed in: `MainActivity.kt`, `HomeFragment.kt`, `SettingsFragment.kt`, `WidgetsFragment.kt`, `ForkSettingsDelegate.kt`, `AppDrawerAdapter.kt`, `Prefs.kt`, `ForkWidgetPrefs.kt`.
+### 5. Style and lint
 
-### 4. Android Lint baseline and upstream style alignment
-
-Android Lint runs on CI (`./gradlew lintDebug --no-daemon`) against `app/lint-baseline.xml` (`lint { baseline = file("lint-baseline.xml") }` in `app/build.gradle`) to catch new issues without failing on pre-existing upstream warnings. No `ktlint` or `detekt` configuration is present; code follows the formatting of edited files (`CONTRIBUTING.md`).
-
-- Enforcement: `.github/workflows/build.yml` (`Run Android Lint` step) and `app/build.gradle`.
-
-### 5. Coroutine scoping and off-main-thread I/O
-
-Asynchronous package queries, wallpaper network calls, and usage-event aggregations execute on `Dispatchers.IO` inside `viewModelScope`, `lifecycleScope`, or WorkManager `CoroutineWorker` rather than blocking the main thread.
-
-- Observed in: `MainViewModel.kt` (`viewModelScope.launch`, `withContext(Dispatchers.IO)`), `MainActivity.kt` (`lifecycleScope.launch`), `WallpaperWorker.kt` (`CoroutineWorker`), `Utils.kt` (`getAppsList`, `getPinnedShortcuts`, `getBitmapFromURL`, `getTodaysWallpaper`).
+`kotlin.code.style=official` (`gradle.properties`); Android Lint with `app/lint-baseline.xml`, run in `build.yml`. No ktlint/detekt.
 
 ## Related documents
 
-- [architecture.md](architecture.md) — Module structure and layer ownership
-- [tech_stack.md](tech_stack.md) — Compiler versions, test runners, and lint configuration
-- [domain_rules.md](domain_rules.md) — Behavioral invariants verified by unit tests
+- [`architecture.md`](architecture.md) — layers
+- [`domain_rules.md`](domain_rules.md) — behavior rules

@@ -6,44 +6,41 @@
 
 ### Purpose
 
-Abacate Lançador (`app.olauncher.abacate`) provides a minimalist, ad-free Android home screen launcher forked from Olauncher with isolated CalVer identity and an optional swipe-adjacent Bento Grid widget workspace.
+Abacate Lançador (`app.olauncher.abacate`) is a minimalist, ad-free Android home launcher forked from Olauncher (GPLv3) that adds a Widget Screen (README.md).
 
 ### Business problem
 
-- Stock Android launchers expose visual clutter, feeds, and tracking; upstream `app.olauncher` lacks dedicated widget hosting and uses the upstream package ID.
-- Package suffixing (`applicationIdSuffix ".abacate"`) lets users install and test the fork side-by-side with upstream `app.olauncher` without uninstalling it.
-- Isolating fork logic in `app/src/main/java/app/olauncher/fork/` and `app/src/fork/res/` keeps upstream syncs (`tanujnotes/Olauncher`) low-conflict while enforcing zero-chrome home screen minimalism.
+- Stock launchers carry ads, tracking and clutter; this fork keeps a text-only home with no analytics (README.md, CONTRIBUTING.md).
+- Upstream lacks a widget page; fork adds Bento-grid Widget Screen under `app/src/main/java/app/olauncher/fork/`.
 
 ### Consumers and integrations
 
 | System | Role |
 |---|---|
-| Android System (`MAIN` / `HOME` / `LAUNCHER`) | Launches `MainActivity` as home screen or app entry (`AndroidManifest.xml`); uses `FakeHomeActivity` for default launcher reset |
-| Android `AppWidgetHost` & `AppWidgetManager` | Allocates `FORK_WIDGET_HOST_ID = 1024`, binds, configures, and hosts third-party widgets on `WidgetsFragment` |
-| Android `LauncherApps` & `UserManager` | Queries installed apps, work/Private Space profiles (`ACCESS_HIDDEN_PROFILES`), and `PinItemActivity` shortcut/widget pin requests |
-| `AccessibilityService` & `DeviceAdminReceiver` | `MyAccessibilityService` locks screen via `GLOBAL_ACTION_LOCK_SCREEN`; `DeviceAdmin` locks screen via `DevicePolicyManager` |
-| `UsageStatsManager` (`EventLogWrapper`) | Aggregates today's foreground screen-time duration when `PACKAGE_USAGE_STATS` is granted |
-| `WallpaperManager` & `HttpURLConnection` | Downloads daily wallpaper metadata JSON (`Constants.URL_WALLPAPERS`) and images every 4h via `WallpaperWorker` |
-| GitHub Releases & Obtainium | Distributes signed release APKs (`AbacateLauncher-<version>-release.apk`) via `.github/workflows/release.yml` and `obtainium://add/...` (`README.md`) |
-| Local CalVer & CI tooling | `app/src/fork/tools/release.py`, `Makefile`, and `.github/workflows/build.yml` manage `version.properties` and test/lint/build pipelines |
+| Android system (HOME intent) | Launches `MainActivity` as default launcher |
+| `LauncherApps` pin requests | `PinItemActivity` confirms pinned shortcuts/widgets |
+| `AppWidgetHost` | `ForkWidgetHostManager` hosts widgets |
+| `DeviceAdmin` / `MyAccessibilityService` | Screen lock actions |
+| WorkManager | Runs `WallpaperWorker` every 4 h |
+| Wallpaper gist (`Constants.URL_WALLPAPERS`) | Daily wallpaper URL list over HTTP |
+| Obtainium / GitHub releases | Distribution (`release.yml`, `v*` tags) |
+| `app/src/fork/tools/release.py` | CalVer release CLI (`make release`) |
 
 ### Macro flow
 
-1. Android delivers `Intent.ACTION_MAIN` (`HOME` / `LAUNCHER`) to `MainActivity`.
-2. `MainActivity.onCreate` initializes `Prefs`, `ForkWidgetHostManager`, `ForkWidgetPinDelegate`, and `WorkspacePagerDelegate` over `activity_main.xml`.
-3. `WorkspacePagerDelegate` keeps `workspacePager` hidden (`View.GONE`) when `WidgetScreenPosition.DISABLED`, or attaches `HomeFragment` (`nav_host_fragment`) and `WidgetsFragment` into `ViewPager2` when `LEFT` or `RIGHT`.
-4. Users launch up to 8 Home apps, swipe vertically for app drawer (`AppDrawerFragment`) or notification shade, long-press empty space for `SettingsFragment`, or swipe horizontally to `WidgetsFragment` when enabled.
-5. `MainViewModel` loads apps/shortcuts asynchronously via `LauncherApps` (`Dispatchers.IO`), persists selections in `SharedPreferences` (`"app.olauncher"`), and schedules `WallpaperWorker` via WorkManager.
+1. Android fires HOME intent → `MainActivity`.
+2. `MainViewModel` loads app list, private space apps, hidden apps from `Prefs`.
+3. `HomeFragment` renders home slots, clock/date; `WorkspacePagerDelegate` adds Widget Screen page via `ViewPager2`.
+4. User swipes/taps → `AppDrawerFragment` search (`appLabelMatches`) or app launch via `launchApp`.
+5. Settings persist to SharedPreferences `app.olauncher`.
+6. Optional daily wallpaper: `WallpaperWorker` fetches and sets wallpaper.
 
 ### Out of scope
 
-- Advertisements, analytics SDKs, and user tracking libraries (`README.md`, `CONTRIBUTING.md`).
-- Inbound HTTP endpoints or background sync servers; network usage is limited to outbound wallpaper JSON/image fetches and user-initiated browser intents (`Constants.kt`, `Utils.kt`).
-- Embedding widgets or edit controls inside `HomeFragment` or `fragment_home.xml` (`docs/fork/FORK_FEATURES.md`).
-- Static `+` or `Edit` buttons on `WidgetsFragment` (`fragment_widgets.xml` uses gesture-only long-press interactions).
+- Ads, analytics, tracking (README.md, CONTRIBUTING.md).
+- No backend/server; no HTTP API served.
 
 ## Related documents
 
-- [architecture.md](architecture.md) — System style, package layout, layer boundaries, and runtime flows
-- [domain_rules.md](domain_rules.md) — Launcher rules, swipe precedence, Bento Grid layout, and fork identity
-- [tech_stack.md](tech_stack.md) — Kotlin, Android SDK levels, Gradle toolchain, and test runners
+- [`architecture.md`](architecture.md) — layers, layout, flows
+- [`domain_rules.md`](domain_rules.md) — launcher behavior rules

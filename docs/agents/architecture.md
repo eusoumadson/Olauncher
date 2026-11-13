@@ -6,99 +6,57 @@
 
 ### Style
 
-Single-activity Android MVVM architecture (`MainActivity` + `MainViewModel` + Jetpack Navigation fragments) extended with isolated `fork/` delegates and `app/src/fork/res/` resource overlays.
+Single-activity MVVM Android app (`MainActivity`, `MainViewModel`, Jetpack Navigation, ViewBinding) with an isolated `fork/` package.
 
 ### Directory layout
 
-```text
-abacate-launcher/
-├── .github/workflows/                 # CI (build.yml) and tag-triggered APK release (release.yml)
-├── app/
-│   ├── build.gradle                   # App module config, .abacate suffix, CalVer properties, lint baseline
-│   ├── lint-baseline.xml              # Baseline isolating upstream Android Lint warnings
-│   └── src/
-│       ├── main/
-│       │   ├── AndroidManifest.xml    # Activities, DeviceAdmin receiver, MyAccessibilityService, permissions
-│       │   ├── java/app/olauncher/
-│       │   │   ├── MainActivity.kt    # Single activity, lifecycle, theme/locale, pager & widget host hooks
-│       │   │   ├── MainViewModel.kt   # Shared LiveData/SingleLiveEvent state, WorkManager, screen time
-│       │   │   ├── data/              # AppModel, Constants, Prefs, shortcutIdentity
-│       │   │   ├── helper/            # Utils, PinItemActivity, FakeHomeActivity, WallpaperWorker, MyAccessibilityService
-│       │   │   │   └── usageStats/    # EventLogWrapper, UnmatchedCloseEventGuardian, foreground stat models
-│       │   │   ├── listener/          # DeviceAdmin, OnSwipeTouchListener, ViewSwipeTouchListener
-│       │   │   ├── ui/                # HomeFragment, AppDrawerFragment, AppDrawerAdapter, SettingsFragment, BaseFragment
-│       │   │   └── fork/
-│       │   │       ├── pager/         # WorkspacePagerDelegate, WorkspacePagerPolicy, ForkHomeTouchDecorator
-│       │   │       ├── settings/      # ForkSettingsDelegate, ForkSwipePolicy
-│       │   │       └── widgets/       # WidgetsFragment, BentoGridLayoutView, BentoGridLayoutPlanner, ForkWidgetHostManager, ForkWidgetPinDelegate, ForkWidgetPrefs, ForkWidgetModels, ForkAppWidgetHostView
-│       │   └── res/                   # Upstream layouts, navigation/nav_graph.xml, drawables, strings, xml
-│       ├── fork/
-│       │   ├── res/                   # Fork overlay resources (activity_main.xml, fork_settings_section.xml, fragment_widgets.xml, strings, accessibility_service_config.xml)
-│       │   └── tools/                 # Python CalVer release script (release.py) and unit tests (test_release.py)
-│       └── test/java/app/olauncher/   # Pure JVM JUnit 4 unit tests (data, helper, fork/*)
-├── docs/fork/                         # Fork integration map (FORK_INTEGRATION.md) and feature catalog (FORK_FEATURES.md)
-├── gradle/libs.versions.toml          # Centralized version catalog
-├── Makefile                           # Local test, dry-run, release, and install targets
-└── version.properties                 # VERSION_CODE and CalVer VERSION_NAME
+```
+app/src/main/java/app/olauncher/
+├── MainActivity.kt, MainViewModel.kt   # host activity, shared state
+├── data/        # Prefs, AppModel, Constants, ShortcutIdentity
+├── ui/          # HomeFragment, AppDrawerFragment/Adapter, SettingsFragment, BaseFragment
+├── helper/      # Utils, WallpaperWorker, AppSearchMatcher, usageStats/, services, PinItemActivity
+├── listener/    # swipe listeners, DeviceAdmin
+└── fork/        # fork-only code
+    ├── pager/     # WorkspacePagerDelegate, ForkHomeTouchDecorator
+    ├── settings/  # ForkSettingsDelegate, ForkSwipePolicy
+    └── widgets/   # ForkWidgetPrefs, HostManager, PinDelegate, Bento grid
+app/src/fork/      # res overlays + tools/release.py
+app/src/test/      # JUnit 4 tests
 ```
 
 ### Layer responsibilities
 
 | Layer | Owns | Does NOT own |
 |---|---|---|
-| Activity & Navigation (`MainActivity`, `nav_graph.xml`) | Window flags, night mode, `OnBackPressedCallback`, `BroadcastReceiver` for Private Space, forwarding `onActivityResult` | Direct grid math, RecyclerView item binding, or widget placement logic |
-| ViewModel (`MainViewModel`) | `MutableLiveData` / `SingleLiveEvent` streams, `viewModelScope` app loading, `WorkManager` scheduling, screen-time queries | View references, fragment transactions, or widget host lifecycle |
-| UI Fragments (`HomeFragment`, `AppDrawerFragment`, `SettingsFragment`, `BaseFragment`) | ViewBinding rendering, touch/click handling, Navigation actions, system dialogs | Direct `AppWidgetHost` binding or `SharedPreferences` raw key schemas |
-| Fork Isolation (`fork/pager`, `fork/settings`, `fork/widgets`) | `ViewPager2` workspace orchestration, Bento Grid planning/editing, `AppWidgetHost` lifecycle, fork settings injection | Upstream home app list rendering or app drawer filtering |
-| Data & Persistence (`Prefs`, `ForkWidgetPrefs`, `AppModel`, `Constants`) | `SharedPreferences` (`"app.olauncher"`) read/write, `ForkWidgetEntryJson` codec, domain models | Android `Context` UI inflation or WorkManager scheduling |
-| System & Background Helpers (`Utils`, `WallpaperWorker`, `PinItemActivity`, `MyAccessibilityService`, `EventLogWrapper`) | `LauncherApps` queries, `HttpURLConnection` wallpaper fetch, `WallpaperManager`, `UsageStatsManager` aggregation, global lock action | Navigation graph routing or `BentoGridLayoutPlanner` state |
+| `ui/` | Fragments, adapters, view binding | Persistence |
+| `MainViewModel` | LiveData state, app loading, WorkManager scheduling | Views |
+| `data/` | `Prefs`, `AppModel`, constants | UI |
+| `helper/` | Utilities, worker, services, search | Navigation |
+| `fork/` | Widget Screen, pager, swipe policy | Upstream screens (grafted via `FORK:<feature>`) |
 
-### External integration points
+### External integrations
 
-| System | Client / Config | Notes |
+| System | Client/config | Notes |
 |---|---|---|
-| Android `AppWidgetHost` | `ForkWidgetHostManager` (`FORK_WIDGET_HOST_ID = 1024`) | `startListening()` in `onStart()` only when enabled and `>= 1` widget saved; `stopListening()` in `onStop()` |
-| Android `LauncherApps` | `MainActivity` callback, `MainViewModel`, `PinItemActivity`, `Utils.kt` | Queries activities, pinned shortcuts, Private Space profiles (`API 35+`), and pin confirmations |
-| Android `WorkManager` | `MainViewModel.setWallpaperWorker()` -> `WallpaperWorker` | Unique periodic work `Constants.WALLPAPER_WORKER_NAME` every 4 hours on `NetworkType.CONNECTED` |
-| Daily Wallpaper JSON & Images | `Utils.kt` (`HttpURLConnection` to `Constants.URL_WALLPAPERS`) | Falls back to `Constants.URL_DEFAULT_DARK_WALLPAPER` / `URL_DEFAULT_LIGHT_WALLPAPER` on failure |
-| Android `UsageStatsManager` | `EventLogWrapper` (`PACKAGE_USAGE_STATS`) | Queries `UsageEvents` on `Dispatchers.IO` with `UnmatchedCloseEventGuardian` |
-| `AccessibilityService` & `DevicePolicyManager` | `MyAccessibilityService`, `DeviceAdmin` | Screen lock via `GLOBAL_ACTION_LOCK_SCREEN` (API 28+) or `DeviceAdmin` |
+| WorkManager | `PeriodicWorkRequestBuilder<WallpaperWorker>(4, HOURS)`, unique name `Constants.WALLPAPER_WORKER_NAME` | `CANCEL_AND_REENQUEUE` |
+| Wallpaper gist | `HttpURLConnection` in `getTodaysWallpaper` | `Constants.URL_WALLPAPERS` |
+| AppWidgetHost | `ForkWidgetHostManager` | widgets |
+| LauncherApps | `ForkWidgetPinDelegate.handlePinItemRequest` | pin requests |
 
-### Macro flow: Workspace pager, Home, and Widget Screen
+### Macro flow: daily wallpaper
 
-```text
-+----------------+     swipe / back / onStop     +------------------------+
-|  MainActivity  | ----------------------------> | WorkspacePagerDelegate |
-+----------------+                               +------------------------+
-        |                                            |                |
-        | WidgetScreenPosition.DISABLED              | LEFT / RIGHT   |
-        v                                            v                v
-+-----------------+                       +----------------+   +-----------------+
-| nav_host_frag   |                       |  HomeFragment  |   | WidgetsFragment |
-| (HomeFragment)  |                       | (nav_host_frag)|   | (BentoGridView) |
-+-----------------+                       +----------------+   +-----------------+
-                                                 |                     |
-                                                 v                     v
-                                          ForkHomeTouchDecorator   ForkWidgetHostManager
-                                          ForkSwipePolicy          ForkWidgetPinDelegate
 ```
-
-### Macro flow: Background wallpaper worker and screen time
-
-```text
-+---------------+   4h periodic (CONNECTED)   +-----------------+   HttpURLConnection   +--------------------+
-| MainViewModel | --------------------------> | WallpaperWorker | --------------------> | URL_WALLPAPERS     |
-+---------------+                             +-----------------+                       +--------------------+
-        |                                              |
-        | viewModelScope + Dispatchers.IO              v
-        v                                     WallpaperManager.setBitmap (SYSTEM + LOCK)
-+-----------------+   UsageEvents.queryEvents  +--------------------+
-| EventLogWrapper | -------------------------> | UsageStatsManager  |
-+-----------------+                            +--------------------+
+MainViewModel --enqueueUniquePeriodicWork(4h)--> WorkManager
+   --> WallpaperWorker.doWork
+        |-- dark theme && not default launcher --> success (skip)
+        |-- dailyWallpaper off --> success
+        '-- getTodaysWallpaper(type, firstOpenTime) -> URL
+              same as prefs.dailyWallpaperUrl --> success
+              else save URL -> setWallpaper() -> success | Result.retry
 ```
 
 ## Related documents
 
-- [project_overview.md](project_overview.md) — High-level purpose, consumers, and scope boundaries
-- [domain_rules.md](domain_rules.md) — Swipe precedence, Bento Grid rules, and widget lifecycle policies
-- [api_contracts.md](api_contracts.md) — Android intent filters, outbound HTTP, and async message contracts
+- [`project_overview.md`](project_overview.md) — purpose and consumers
+- [`coding_guidelines.md`](coding_guidelines.md) — conventions

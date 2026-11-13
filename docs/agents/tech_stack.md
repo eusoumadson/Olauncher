@@ -6,45 +6,37 @@
 
 ### Runtime and language
 
-- **Language**: Kotlin `2.1.20` (JVM target `17`) and Python `3` (`app/src/fork/tools/release.py`)
-- **Framework**: Android SDK (`compileSdk 36`, `targetSdk 36`, `minSdk 24`) with Jetpack Navigation `2.9.0`, Lifecycle ViewModel `2.9.0`, WorkManager `2.10.1`, ViewPager2 `1.1.0`, Material `1.12.0`
+- **Language**: Kotlin 2.1.20 (JVM target 17); Python 3 for `app/src/fork/tools/release.py`
+- **Framework**: Android SDK (compileSdk 36, targetSdk 36, minSdk 24), AGP 8.9.1, AndroidX
 
-| Component | Version / Config | Source |
-|---|---|---|
-| Kotlin & stdlib | `2.1.20`, `JavaVersion.VERSION_17` | `gradle/libs.versions.toml`, `app/build.gradle` |
-| Android Gradle Plugin | `8.9.1` | `gradle/libs.versions.toml` |
-| Gradle Wrapper | `8.11.1` | `gradle/wrapper/gradle-wrapper.properties` |
-| Android Runtime (ART) | `minSdk 24`, `targetSdk 36`, `compileSdk 36` | `app/build.gradle` |
-| Build features | `viewBinding = true`, `buildConfig = true` | `app/build.gradle` |
-| Release minification | `minifyEnabled true` (`proguard-android-optimize.txt`, `proguard-rules.pro`) | `app/build.gradle` |
-| Package IDs | `app.olauncher.abacate` (release), `app.olauncher.abacate.debug` (debug) | `app/build.gradle` |
-| Versioning | CalVer `VERSION_CODE=116`, `VERSION_NAME=2026.11.12` | `version.properties`, `app/src/fork/tools/release.py` |
-| Resource overlay | `debug.res.srcDirs` and `release.res.srcDirs` include `src/fork/res` | `app/build.gradle` |
+| Item | Value |
+|---|---|
+| Runtime | ART (API 24-36) |
+| Build | Gradle 8.11.1 wrapper, `gradle/libs.versions.toml` |
+| UI | ViewBinding, Navigation 2.9.0, ViewPager2 1.1.0, Material 1.12.0, RecyclerView 1.4.0 |
+| Lifecycle | lifecycle-viewmodel-ktx 2.9.0 |
+| Background | work-runtime-ktx 2.10.1 |
+| Lint | Android Lint, `app/lint-baseline.xml` |
 
 ### Tests
 
-| Tooling | Configuration / Version | Source |
-|---|---|---|
-| JVM test runner | JUnit `4.13.2` (`./gradlew testDebugUnitTest --no-daemon`) | `gradle/libs.versions.toml`, `.github/workflows/build.yml` |
-| Instrumentation runner | `androidx.test.runner.AndroidJUnitRunner` | `app/build.gradle` |
-| Assertion library | `org.junit.Assert` (`assertEquals`, `assertTrue`, `assertFalse`, `assertNotNull`, `assertNull`) | `app/src/test/java/app/olauncher/` |
-| Mocking library | None (pure Kotlin policies + in-memory fakes such as `InMemorySharedPreferences`) | `app/src/test/java/app/olauncher/fork/` |
-| Python test runner | `python3 -m unittest app/src/fork/tools/test_release.py` | `Makefile`, `.github/workflows/build.yml` |
-| Coverage tool | None configured | `app/build.gradle`, `.github/workflows/build.yml` |
-| Linter | Android Lint (`./gradlew lintDebug --no-daemon`, `baseline = file("lint-baseline.xml")`); no ktlint or detekt | `app/build.gradle`, `.github/workflows/build.yml` |
+| Item | Value |
+|---|---|
+| Runner | JUnit 4.13.2; Python `unittest` |
+| Assertions | `org.junit.Assert`, `unittest.TestCase` |
+| Mocks | none found |
+| Coverage | none found |
+| Locations | `app/src/test/java/app/olauncher/`, `app/src/fork/tools/test_release.py` |
 
 ### External integrations
 
 | System | Client wiring |
 |---|---|
-| Daily Wallpaper Gist & image hosts | `java.net.HttpURLConnection` on `Dispatchers.IO` (`app/src/main/java/app/olauncher/helper/Utils.kt`) |
-| Android System Wallpaper | `android.app.WallpaperManager` (`Utils.kt`, `WallpaperWorker.kt`) |
-| Android Widgets | `android.appwidget.AppWidgetHost` (`FORK_WIDGET_HOST_ID = 1024`) & `AppWidgetManager` (`ForkWidgetHostManager.kt`, `ForkWidgetPinDelegate.kt`) |
-| Android Usage Stats | `android.app.usage.UsageStatsManager` (`EventLogWrapper.kt`) |
-| GitHub Actions CI/Release | `.github/workflows/build.yml`, `.github/workflows/release.yml` (`softprops/action-gh-release@v2`) |
+| Wallpaper gist | `HttpURLConnection` (`INTERNET` permission) |
+| WorkManager | `WallpaperWorker` |
+| GitHub Actions | `.github/workflows/build.yml`, `release.yml` |
 
 ## Related documents
 
-- [dependencies.md](dependencies.md) — Complete runtime, test, and build dependency catalogue
-- [coding_guidelines.md](coding_guidelines.md) — Language conventions, lint baseline, and fork isolation rules
-- [architecture.md](architecture.md) — System layout and runtime responsibilities
+- [`dependencies.md`](dependencies.md) — library list
+- [`architecture.md`](architecture.md) — structure

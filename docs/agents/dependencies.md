@@ -8,46 +8,37 @@
 
 | Service | Purpose |
 |---|---|
-| `gist.githubusercontent.com` (`Constants.URL_WALLPAPERS`) | Hosts daily light/dark wallpaper index JSON fetched by `Utils.getTodaysWallpaper` (`HttpURLConnection`) |
-| `images.unsplash.com` (`URL_DEFAULT_DARK_WALLPAPER`, `URL_DEFAULT_LIGHT_WALLPAPER`, index URLs) | Serves wallpaper bitmaps downloaded by `Utils.getBitmapFromURL` (`WallpaperWorker`) |
-| GitHub (`github.com/eusoumadson/abacate-launcher`) | Fork source repository, issue tracker (`URL_FORK_GITHUB`, `URL_FORK_ISSUES`), CI/Release hosting, and Obtainium update source (`README.md`) |
-| External browser destinations (`Constants.kt`) | Upstream Olauncher GitHub, Substack, Notion privacy policy/guides, X/Twitter, DuckDuckGo search (`URL_DUCK_SEARCH`), and Google Play links opened via `ACTION_VIEW` |
+| Wallpaper gist (`Constants.URL_WALLPAPERS`) | Daily wallpaper URL list |
+| GitHub Actions / Releases | CI (`build.yml`) and signed APKs (`release.yml`) |
+| Obtainium | Install/update channel |
+
+### Libraries
+
+| Package | Version | Role |
+|---|---|---|
+| kotlin-stdlib | 2.1.20 | stdlib |
+| androidx.core:core-ktx | 1.16.0 | KTX |
+| androidx.appcompat | 1.7.0 | AppCompatActivity |
+| androidx.recyclerview | 1.4.0 | drawer list |
+| androidx.lifecycle:lifecycle-extensions | 2.2.0 | lifecycle |
+| lifecycle-viewmodel-ktx | 2.9.0 | ViewModel |
+| navigation-fragment-ktx | 2.9.0 | navigation |
+| work-runtime-ktx | 2.10.1 | wallpaper scheduling |
+| material | 1.12.0 | theming |
+| viewpager2 | 1.1.0 | FORK:widget-screen paging |
+| junit | 4.13.2 | tests |
 
 ### Internal libraries
 
-| Package / Module | Role |
-|---|---|
-| `app.olauncher.fork.pager` | `WorkspacePagerDelegate`, `WorkspacePagerPolicy`, `WorkspacePage`, `ForkHomeTouchDecorator` — `ViewPager2` workspace orchestration and Home touch cancel decoration |
-| `app.olauncher.fork.settings` | `ForkSettingsDelegate`, `ForkSwipePolicy` — injected settings card (`fork_settings_section.xml`) and gesture precedence rules |
-| `app.olauncher.fork.widgets` | `WidgetsFragment`, `BentoGridLayoutView`, `BentoGridLayoutPlanner`, `ForkWidgetHostManager`, `ForkWidgetPinDelegate`, `ForkWidgetPrefs`, `ForkWidgetModels`, `ForkAppWidgetHostView` |
-| `app.olauncher.helper.usageStats` | `EventLogWrapper`, `UnmatchedCloseEventGuardian`, `ComponentForegroundStat`, `SimpleUsageStat` — `UsageEvents` foreground-time aggregation |
-
-### Runtime and test libraries
-
-Declared in `gradle/libs.versions.toml` and `app/build.gradle`:
-
-| Coordinate | Version | Scope | Purpose |
-|---|---|---|---|
-| `org.jetbrains.kotlin:kotlin-stdlib` | `2.1.20` | `implementation` | Kotlin standard library |
-| `androidx.core:core-ktx` | `1.16.0` | `implementation` | Kotlin extensions (`SharedPreferences.edit`, `WindowInsetsCompat`) |
-| `androidx.appcompat:appcompat` | `1.7.0` | `implementation` | `AppCompatActivity`, `AppCompatDelegate` night mode |
-| `androidx.recyclerview:recyclerview` | `1.4.0` | `implementation` | `AppDrawerAdapter` list and `ViewPager2` adapter base |
-| `androidx.lifecycle:lifecycle-extensions` | `2.2.0` | `implementation` | Lifecycle utilities |
-| `androidx.lifecycle:lifecycle-viewmodel-ktx` | `2.9.0` | `implementation` | `AndroidViewModel`, `viewModelScope` |
-| `androidx.navigation:navigation-fragment-ktx` | `2.9.0` | `implementation` | `NavHostFragment`, `NavController`, `nav_graph.xml` |
-| `androidx.work:work-runtime-ktx` | `2.10.1` | `implementation` | `CoroutineWorker` periodic wallpaper scheduling |
-| `com.google.android.material:material` | `1.12.0` | `implementation` | Material components and theming |
-| `androidx.viewpager2:viewpager2` | `1.1.0` | `implementation` (`# FORK:widget-screen`) | Horizontal swipe workspace between Home and Widget Screen |
-| `junit:junit` | `4.13.2` | `testImplementation` | JVM unit tests |
+None; single module `app`.
 
 ### Shared infrastructure
 
-- **Build toolchain**: Gradle `8.11.1` Wrapper (`gradle/wrapper/gradle-wrapper.properties`), Android Gradle Plugin `8.9.1`, Kotlin Gradle Plugin `2.1.20`, `app/lint-baseline.xml`.
-- **Release & CI**: `version.properties`, `Makefile`, `app/src/fork/tools/release.py` (Python 3 stdlib), `.github/workflows/build.yml`, `.github/workflows/release.yml` (`softprops/action-gh-release@v2`).
-- **Android OS bindings**: `AppWidgetHost` (`hostId = 1024`), `AppWidgetManager`, `LauncherApps`, `UserManager`, `UsageStatsManager`, `WallpaperManager`, `DevicePolicyManager`, `AccessibilityService`, `SharedPreferences` (`"app.olauncher"`).
+- WorkManager periodic job `WallpaperWorker`.
+- SharedPreferences `app.olauncher`.
+- No queues, caches or observability SDKs (no analytics by policy).
 
 ## Related documents
 
-- [tech_stack.md](tech_stack.md) — SDK targets, compilers, and test tooling
-- [api_contracts.md](api_contracts.md) — System intent contracts and outbound HTTP details
-- [architecture.md](architecture.md) — How packages and external bindings fit together
+- [`tech_stack.md`](tech_stack.md) — versions and tooling
+- [`architecture.md`](architecture.md) — integration points
