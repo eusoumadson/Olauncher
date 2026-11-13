@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: RF-01 - Identidade Dual, Coexistência de Pacotes e Preservação GPLv3
-THE SYSTEM SHALL manter `applicationIdSuffix = ".abacate"` (verified at `app/build.gradle:21`), `fork_label_name` (`"Lançador"`) e `fork_app_name` (`"Abacate Lançador"`) (verified at `app/build.gradle:26-27`), substituir `"Olauncher"` por `"Abacate Lançador"` nas strings conversacionais via `app/src/fork/res/`, remover `forkIssuesLink` (verified at `app/src/fork/res/layout/fork_settings_section.xml:145`), redirecionar `shareApp()` para `Constants.URL_FORK_GITHUB`, ocultar fluxos de Play Store e preservar créditos e licença GNU GPLv3.
+THE SYSTEM SHALL manter `applicationIdSuffix = ".abacate"` (verified at `app/build.gradle:21`), `fork_label_name` (`"Lançador"`) e `fork_app_name` (`"Abacate Lançador"`) (verified at `app/build.gradle:26-27`), substituir `"Olauncher"` por `"Abacate Lançador"` nas strings conversacionais via `app/src/fork/res/`, remover completamente `forkIssuesLink` (`fork_settings_section.xml` e `ForkSettingsDelegate.kt`), `fork_issues` (`app/src/fork/res/values*/strings.xml`) e `Constants.URL_FORK_ISSUES` (atualizando `ForkIdentityConstantsTest`), redirecionar `shareApp()` para `Constants.URL_FORK_GITHUB`, ocultar fluxos de Play Store e preservar URLs/helpers upstream e licença GNU GPLv3.
 
 #### Scenario: Coexistência de pacotes e rótulos distintos no sistema e acessibilidade
 - **WHEN** o APK `release` ou `debug` for compilado mantendo `applicationIdSuffix ".debug"` (verified at `app/build.gradle:47`) e as strings conversacionais forem resolvidas em `en` e `pt-rBR` (verified at `app/src/main/res/values/strings.xml:30-161` e `app/src/main/res/values-pt-rBR/strings.xml:6-129`)
@@ -14,29 +14,30 @@ THE SYSTEM SHALL manter `applicationIdSuffix = ".abacate"` (verified at `app/bui
 
 #### Scenario: Remoção de fluxos de Play Store e link de Issues na UI interna
 - **WHEN** `SettingsFragment`, `MainActivity.checkForMessages()` (verified at `app/src/main/java/app/olauncher/MainActivity.kt:296`) ou `Context.shareApp()` (verified at `app/src/main/java/app/olauncher/helper/Utils.kt:613`) forem executados
-- **THEN** a seção `"Abacate Lançador"` (`fork_settings_section.xml`) SHALL remover/ocultar `forkIssuesLink` mantendo `forkGithubLink` (`Constants.URL_FORK_GITHUB`) e `forkUpstreamCredit` (`Constants.URL_OLAUNCHER_GITHUB`) (verified at `app/src/main/java/app/olauncher/fork/settings/ForkSettingsDelegate.kt:72-74`)
-- **AND** `moreFeatures`, `rate` e `footer` (`Note to Self` / `Pentastic`, verified at `app/src/main/res/layout/fragment_settings.xml:84,559,590`) SHALL permanecer ocultos (`View.GONE`) e inativos sem acionar `rateApp()` (verified at `app/src/main/java/app/olauncher/helper/Utils.kt:626`), `URL_OLAUNCHER_PRO`, `URL_NTS` ou `URL_PENTASTIC`
-- **AND** `MainActivity` SHALL NOT disparar nem exibir os dialogs `Constants.Dialog.REVIEW`, `Constants.Dialog.RATE` ou `Constants.Dialog.PRO_MESSAGE` (verified at `app/src/main/java/app/olauncher/data/Constants.kt:13-19` e `app/src/main/java/app/olauncher/MainActivity.kt:240-286`)
+- **THEN** o código morto exclusivo do fork `forkIssuesLink` (`app/src/fork/res/layout/fork_settings_section.xml` e `ForkSettingsDelegate.kt`), `fork_issues` (`app/src/fork/res/values*/strings.xml`) e `Constants.URL_FORK_ISSUES` SHALL ser completamente removido (com atualização correspondente em `ForkIdentityConstantsTest`), mantendo `forkGithubLink` (`Constants.URL_FORK_GITHUB`) e `forkUpstreamCredit` (`Constants.URL_OLAUNCHER_GITHUB`) na seção `"Abacate Lançador"`
+- **AND** `ForkSettingsDelegate` SHALL ocultar `moreFeatures`, `rate` e `footer` (`Note to Self` / `Pentastic`, verified at `app/src/main/res/layout/fragment_settings.xml:84,559,590`) com `View.GONE` e limpar seus listeners, cobrindo portrait e `layout-land` sem editar o XML upstream e sem acionar `rateApp()` (verified at `app/src/main/java/app/olauncher/helper/Utils.kt:626`), `URL_OLAUNCHER_PRO`, `URL_NTS` ou `URL_PENTASTIC`
+- **AND** `MainActivity.checkForMessages()` (via enxerto `// FORK:fork-identity`) SHALL avançar `WALLPAPER` e quaisquer estados persistidos `REVIEW`/`RATE` diretamente para `SHARE`, suprimindo os dialogs `Constants.Dialog.REVIEW`, `Constants.Dialog.RATE` e `Constants.Dialog.PRO_MESSAGE` (verified at `app/src/main/java/app/olauncher/data/Constants.kt:13-19` e `app/src/main/java/app/olauncher/MainActivity.kt:240-286`)
 - **AND** `Context.shareApp()` SHALL compartilhar `Constants.URL_FORK_GITHUB` (`"https://github.com/eusoumadson/abacate-launcher"`, verified at `app/src/main/java/app/olauncher/data/Constants.kt:108`) em vez de `Constants.URL_OLAUNCHER_PLAY_STORE`.
 
 #### Scenario: Preservação integral da licença GPLv3 e atribuição upstream
-- **WHEN** `LICENSE`, `README.md`, `SettingsFragment`, `ForkSettingsDelegate` e `Constants.kt` forem auditados
-- **THEN** a licença GNU GPLv3 SHALL permanecer inalterada e todas as URLs originais (`URL_ABOUT_OLAUNCHER`, `URL_OLAUNCHER_GITHUB`, `URL_TWITTER_TANUJ`, `URL_OLAUNCHER_PRIVACY`, verified at `app/src/main/java/app/olauncher/data/Constants.kt:93-100`) SHALL permanecer intactas.
+- **WHEN** `LICENSE`, `README.md`, `SettingsFragment`, `ForkSettingsDelegate`, `Utils.kt` e `Constants.kt` forem auditados
+- **THEN** a licença GNU GPLv3 SHALL permanecer inalterada e todas as URLs e helpers upstream (`URL_ABOUT_OLAUNCHER`, `URL_OLAUNCHER_GITHUB`, `URL_TWITTER_TANUJ`, `URL_OLAUNCHER_PRIVACY`, `URL_OLAUNCHER_PLAY_STORE`, `URL_OLAUNCHER_PRO`, `URL_NTS`, `URL_PENTASTIC`, `rateApp()`, verified at `app/src/main/java/app/olauncher/data/Constants.kt:93-100`) SHALL permanecer intactos pelo princípio de Fork Isolation.
 
 ### Requirement: RF-02 - Versionamento CalVer, Ferramentas de Release e Remoto Git
 THE SYSTEM SHALL carregar `VERSION_CODE` e `VERSION_NAME` de `version.properties` em `app/build.gradle` (verified at `app/build.gradle:4-5,24-25`), prover `Makefile` (verified at `Makefile:1-17`) e evoluir `app/src/fork/tools/release.py` (descrição `"Abacate Lançador"`) e `app/src/fork/tools/test_release.py` com preflight na branch `main`, colisão `.1`/`.2`, minuta via OpenSpec `proposal.md`, atualização de `CHANGELOG.md`, tag anotada e push interativo para `origin`.
 
 #### Scenario: Versionamento dinâmico e simulação de release CalVer
 - **WHEN** `python3 app/src/fork/tools/release.py --dry-run` e `./gradlew assembleDebug --no-daemon` forem executados
-- **THEN** `release.py --dry-run` SHALL sair com código `0` simulando preflight, incremento de `VERSION_CODE`, resolução de `vYYYY.MM.DD` (ou `.1`/`.2`), minuta extraída do `proposal.md` mais recente, seção `## [VERSION_NAME]` em `CHANGELOG.md`, commit `chore(release)` e tag anotada sem alterar disco ou Git
+- **THEN** `release.py --dry-run` SHALL sair com código `0` simulando preflight, incremento de `VERSION_CODE`, resolução de `vYYYY.MM.DD(.N)`, minuta extraída do `proposal.md` mais recente, seção `## [VERSION_NAME]` em `CHANGELOG.md`, commit `chore(release)` e tag anotada sem alterar disco ou Git
 - **AND** o `Makefile` SHALL expor alvos `release`, `dry-run`, `test` e `install`
 - **AND** o APK compilado SHALL ler `versionCode` e `versionName` dinamicamente de `version.properties`.
 
 #### Scenario: Preflight, colisão no mesmo dia, atualização de CHANGELOG e push interativo para origin
 - **WHEN** `app/src/fork/tools/release.py` for executado sem `--dry-run`
 - **THEN** IF o working tree possuir alterações não comitadas OR a branch atual for diferente de `main`, THEN `release.py` SHALL falhar com código de saída diferente de `0` sem efetuar alterações
-- **AND** quando a tag `vYYYY.MM.DD` já existir, `release.py` SHALL sugerir `YYYY.MM.DD.1`, `YYYY.MM.DD.2` sucessivamente
-- **AND** `release.py` SHALL extrair minuta do `proposal.md` mais recente em `openspec/changes/` ou `openspec/changes/archive/`, permitir edição via `$EDITOR` ou entrada manual, inserir `## [VERSION_NAME]` no topo de `CHANGELOG.md`, criar commit `chore(release)` + tag anotada `v<VERSION_NAME>` e exigir confirmação explícita antes de `git push origin main` e `git push origin v<VERSION_NAME>`.
+- **AND** quando a tag `vYYYY.MM.DD` já existir, `release.py` SHALL calcular e sugerir o próximo sufixo `YYYY.MM.DD(.N)` disponível (com `[Enter]` para aceitar ou `--version` customizado)
+- **AND** `release.py` SHALL buscar a proposta OpenSpec mais recente priorizando `openspec/changes/archive/` por ordem descendente de nome (com data `YYYY-MM-DD-...`) e considerando também `openspec/changes/` ativo, extraindo os tópicos de `## What Changes` (com fallback para `## Scope` -> `In:` e fallback de edição via `$EDITOR` ou entrada manual)
+- **AND** `release.py` SHALL inserir `## [VERSION_NAME]` no topo de `CHANGELOG.md`, criar commit `chore(release)` + tag anotada `v<VERSION_NAME>` e exigir confirmação explícita antes de `git push origin main` e `git push origin v<VERSION_NAME>` (mantendo o commit `chore(release)` e a tag anotada `v<VERSION_NAME>` locais intactos e exibindo os comandos manuais de push caso o usuário recuse).
 
 #### Scenario: Remoto origin e README com Obtainium
 - **WHEN** `git remote get-url origin` for verificado e `README.md` for inspecionado
@@ -57,7 +58,8 @@ WHEN ocorrer `push` na branch `main`, `pull_request`, `push` de tag `v*` ou acio
 #### Scenario: Execução de CI em PRs e publicação automática em tags CalVer
 - **WHEN** os workflows `.github/workflows/build.yml` (verified at `.github/workflows/build.yml:1-37`) e `.github/workflows/release.yml` (verified at `.github/workflows/release.yml:1-84`) forem inspecionados ou executados
 - **THEN** `build.yml` SHALL disparar em `push` para `main` (sem `master`) e `pull_request`, usando Java 17 e executando `python3 -m unittest app/src/fork/tools/test_release.py`, `./gradlew assembleDebug --no-daemon`, `./gradlew testDebugUnitTest --no-daemon` e `./gradlew lintDebug --no-daemon`
-- **AND** `release.yml` SHALL suportar `push` em tags `v*` e `workflow_dispatch`, decodificar `KEYSTORE_BASE64`, assinar o APK de release, validar a assinatura com `apksigner verify -v` e extrair notas de `CHANGELOG.md`
+- **AND** `release.yml` SHALL suportar `push` em tags `v*` e `workflow_dispatch`, resolver `${version}` via `GITHUB_REF_NAME#v` quando o evento for `push` de tag `v*` e ler `VERSION_NAME` de `version.properties` quando o evento for `workflow_dispatch`
+- **AND** `release.yml` SHALL decodificar `KEYSTORE_BASE64` para arquivo temporário, passar `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` e `KEY_PASSWORD` como variáveis de ambiente para `./gradlew assembleRelease --no-daemon` (exercitando `signingConfigs.release` diretamente no CI), validar a assinatura com `apksigner verify -v` e extrair notas de `CHANGELOG.md`
 - **AND** em `push` de tag `v*`, `release.yml` SHALL anexar `AbacateLancador-${version}-release.apk` na GitHub Release; em `workflow_dispatch`, SHALL enviar `AbacateLancador-${version}-release.apk` via `actions/upload-artifact` sem criar Release
 - **AND** `release.yml` SHALL remover o arquivo temporário da keystore em passo com `if: always()`.
 
@@ -67,7 +69,7 @@ THE SYSTEM SHALL manter compilação debug, suíte de testes unitários JVM, tes
 #### Scenario: Execução completa de verificação local
 - **WHEN** `make test`, `./gradlew assembleDebug --no-daemon`, `./gradlew lintDebug --no-daemon` e `grep -rn "FORK:" app/src/main/ app/build.gradle gradle/libs.versions.toml` forem executados
 - **THEN** `make test` (`test_release.py` + `testDebugUnitTest`), `assembleDebug` e `lintDebug` SHALL retornar código de saída `0`
-- **AND** `test_release.py` SHALL cobrir preflight, colisão `.1`/`.2`, extração de `proposal.md` e inserção em `CHANGELOG.md`, e os testes JVM SHALL cobrir o redirecionamento de `shareApp()` para `Constants.URL_FORK_GITHUB` e a identidade do fork.
+- **AND** `test_release.py` SHALL cobrir preflight, colisão `.1`/`.2`, extração de `proposal.md` (`## What Changes` / fallback `## Scope` -> `In:`), confirmação negativa de push mantendo commit/tag locais e inserção em `CHANGELOG.md`, e os testes JVM (`ForkIdentityConstantsTest`, testes de `shareApp()`) SHALL cobrir o redirecionamento de `shareApp()` para `Constants.URL_FORK_GITHUB` e a identidade do fork (incluindo remoção de `URL_FORK_ISSUES`).
 
 ## ADDED Requirements
 
@@ -90,7 +92,7 @@ THE SYSTEM SHALL configurar `signingConfigs.release` em `app/build.gradle` com l
 
 #### Scenario: Configuração de assinatura release com fallback local.properties e assinatura v2 + v3
 - **WHEN** `app/build.gradle` avaliar `signingConfigs` e `buildTypes.release`
-- **THEN** `signingConfigs.release` SHALL resolver `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` e `KEY_PASSWORD` priorizando variáveis de ambiente sobre `local.properties` somente quando todas estiverem presentes e o arquivo existir
+- **THEN** `signingConfigs.release` SHALL resolver cada uma das 4 chaves (`KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) com fallback individual `System.getenv(k) ?: localProps.getProperty(k)` e configurar `signingConfigs.release` somente quando todas as 4 forem não nulas/não vazias e o arquivo da keystore existir
 - **AND** `signingConfigs.release` SHALL definir `enableV2Signing = true` e `enableV3Signing = true`
 - **AND** `buildTypes.release` SHALL associar `signingConfigs.findByName("release")` sem quebrar builds sem keystore local
 - **AND** `local.properties.example` SHALL documentar `sdk.dir` e as chaves opcionais `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` e `KEY_PASSWORD`.
