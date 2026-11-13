@@ -24,6 +24,7 @@ import androidx.navigation.findNavController
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.ActivityMainBinding
+import app.olauncher.fork.pager.WorkspacePagerDelegate // FORK:widget-screen
 import app.olauncher.fork.widgets.ForkWidgetHostManager // FORK:widget-screen
 import app.olauncher.fork.widgets.ForkWidgetPinDelegate // FORK:widget-screen
 import app.olauncher.helper.getColorFromAttr
@@ -64,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private var messageDialog: OlDialog? = null
     private lateinit var forkWidgetHostManager: ForkWidgetHostManager // FORK:widget-screen
     private lateinit var forkWidgetPinDelegate: ForkWidgetPinDelegate // FORK:widget-screen
+    private lateinit var workspacePagerDelegate: WorkspacePagerDelegate // FORK:widget-screen
 
 //    override fun onBackPressed() {
 //        if (navController.currentDestination?.id != R.id.mainFragment)
@@ -90,10 +92,12 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         navController = this.findNavController(R.id.nav_host_fragment)
+        workspacePagerDelegate = WorkspacePagerDelegate(this, binding, navController, forkWidgetHostManager.widgetPrefs) // FORK:widget-screen
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
 
         val onBackPressedCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (workspacePagerDelegate.handleBackPressed()) return // FORK:widget-screen
                 // Back never leaves the home screen; elsewhere it pops the nav stack
                 if (navController.currentDestination?.id != R.id.mainFragment)
                     navController.popBackStack()
@@ -354,6 +358,7 @@ class MainActivity : AppCompatActivity() {
     private fun backToHomeScreen() {
         if (viewModel.isPrivateSpaceToggling) return
         messageDialog?.dismiss()
+        workspacePagerDelegate.returnToHome(smoothScroll = isResumed) // FORK:widget-screen
         if (navController.currentDestination?.id != R.id.mainFragment)
             navController.popBackStack(R.id.mainFragment, false)
     }

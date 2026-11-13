@@ -57,6 +57,9 @@ android {
         includeInBundle = true
     }
     namespace 'app.olauncher'
+    lint { // FORK:fork-identity
+        baseline = file("lint-baseline.xml") // FORK:fork-identity
+    } // FORK:fork-identity
 }
 
 dependencies {

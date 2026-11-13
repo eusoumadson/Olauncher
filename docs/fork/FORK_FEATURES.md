@@ -6,7 +6,7 @@ Catálogo oficial das funcionalidades exclusivas do fork **Abacate Lançador** s
 
 ## 1. `fork-identity` — Identidade Dual, Coexistência, CalVer e Governança
 
-- **Status**: Implementada (Fase 1)
+- **Status**: Implementada
 - **Identificador de Enxerto**: `FORK:fork-identity`
 - **Escopo e Comportamento**:
   - **Coexistência de pacotes**: `applicationIdSuffix = ".abacate"` em `defaultConfig` gera `app.olauncher.abacate` (`release`) e `app.olauncher.abacate.debug` (`debug`), permitindo instalação lado a lado com o Olauncher upstream (`app.olauncher`).
@@ -25,13 +25,18 @@ Catálogo oficial das funcionalidades exclusivas do fork **Abacate Lançador** s
 
 ## 2. `widget-screen` — Tela Dedicada de Widgets com ViewPager2 e Bento Grid
 
-- **Status**: Em preparação (Dependência `androidx.viewpager2:viewpager2` provisionada na Fase 1; implementação nas Fases 2–4)
+- **Status**: Implementada
 - **Identificador de Enxerto**: `FORK:widget-screen`
-- **Escopo Planejado**:
-  - Seção `"Abacate Lançador"` em `SettingsFragment` com posição da Tela de Widgets (`Desativada` padrão, `Esquerda`, `Direita`) e toggles de largura/altura mínima `1` no grid.
-  - Paginação física lado a lado via `ViewPager2` (`WorkspacePagerDelegate`) mantendo papel de parede contínuo e `HomeFragment` minimalista sem widgets internos.
-  - Motor `BentoGridLayoutPlanner` responsivo (`4`/`6`/`8` colunas) com empacotamento *first-fit* determinístico e suporte a `RESIZE_NONE`.
-  - Ciclo de vida econômico de `AppWidgetHost`, fluxo `PICK -> BIND -> CONFIGURE`, pinning externo (`PinItemActivity`) e edição puramente por gestos (`ForkAppWidgetHostView`) sem botões estáticos.
+- **Escopo e Comportamento**:
+  - **Configurações e precedência de gestos (`ForkSettingsDelegate`, `ForkSwipePolicy`)**: seção `"Abacate Lançador"` injetada em `SettingsFragment` com posição da Tela de Widgets (`Desativada` padrão, `Esquerda`, `Direita`), toggles `allowMinWidth1`/`allowMinHeight1`, versão e links do fork/upstream; ativar `Esquerda` ou `Direita` desabilita a abertura de app no gesto correspondente preservando o gesto oposto.
+  - **Paginação física lado a lado (`WorkspacePagerDelegate`, overlay `activity_main.xml`)**: desliza `HomeFragment` e `WidgetsFragment` via `ViewPager2` sobre o papel de parede contínuo quando `LEFT`/`RIGHT`, mantém `workspacePager` `GONE` com `nav_host_fragment` direto em `mainActivityLayout` quando `DISABLED`, bloqueia `isUserInputEnabled = false` fora de `R.id.mainFragment` ou durante drag/resize de widgets, e retorna à Home por swipe contrário, `OnBackPressedCallback` e `backToHomeScreen()` (`onStop`, `onUserLeaveHint`, `onNewIntent`).
+  - **Motor Bento Grid responsivo (`BentoGridLayoutPlanner`)**: grade responsiva de `4` colunas (`< 600dp`), `6` colunas (`600dp..839dp`) e `8` colunas (`>= 840dp`) com empacotamento *first-fit* determinístico sem sobreposição nem lacunas órfãs, mínimo padrão `2x2` (ou `1x` via configurações) e centralização sem alças de redimensionamento para widgets `RESIZE_NONE`.
+  - **Ciclo de vida `AppWidgetHost`, adição e pinning (`ForkWidgetHostManager`, `ForkWidgetPinDelegate`, `PinItemActivity`)**: `startListening()` em `onStart()` e `stopListening()` em `onStop()` somente quando ativo e com `>= 1` widget salvo; limpeza automática de IDs órfãos via `deleteAppWidgetId()`; adição via `ACTION_APPWIDGET_PICK` -> `ACTION_APPWIDGET_BIND` -> `ACTION_APPWIDGET_CONFIGURE` por toque longo no fundo vazio; pinning externo `REQUEST_TYPE_APPWIDGET` em `PinItemActivity` quando ativo (mantendo `R.string.widgets_not_supported` quando `Desativada`).
+  - **Edição puramente por gestos (`ForkAppWidgetHostView`, `BentoGridLayoutView`, `WidgetsFragment`)**: toque longo tátil sobre qualquer widget ativa Drag & Drop de reordenação, alças de redimensionamento na grade e remoção; toque fora encerra a edição e persiste ordem/spans sem botões estáticos (`+` ou `Editar`).
+  - **Isolamento da Home (`ForkHomeTouchDecorator`, `HomeFragment`)**: `ForkHomeTouchDecorator` limpa `view.isPressed = false` em `ACTION_CANCEL` quando `ViewPager2` intercepta o gesto sem alterar `OnSwipeTouchListener`/`ViewSwipeTouchListener`; `fragment_home.xml` e `HomeFragment` permanecem livres de widgets e controles de edição.
 - **Regras de Não-Regressão**:
-  - `HomeFragment` e `fragment_home.xml` não devem exibir widgets ou controles de edição.
-  - Com a Tela de Widgets em `Desativada`, todos os gestos, navegação e `PinItemActivity` mantêm o comportamento original do Olauncher upstream.
+  - `ForkSwipePolicyTest` e `HomeSwipePrecedenceTest`: garantem bloqueio exclusivo do gesto lateral ocupado pela Tela de Widgets, preservação do gesto oposto, retorno `onBackPressed`/`onNewIntent` e limpeza de estado pressionado em `ACTION_CANCEL`.
+  - `WorkspacePagerPolicyTest`: garante índices de página para `DISABLED`/`LEFT`/`RIGHT` e bloqueio de `isUserInputEnabled` em `appListFragment`, `settingsFragment` e durante edição ativa.
+  - `BentoGridLayoutPlannerTest` e `BentoGridEditActionsTest`: garantem breakpoints `4`/`6`/`8`, *first-fit* sem sobreposição, mínimos `2x2`/`1x`, `RESIZE_NONE`, reordenação, resize e remoção.
+  - `ForkWidgetHostManagerTest`, `ForkWidgetPinPolicyTest`, `ForkWidgetPrefsTest` e `ForkWidgetEditStateTest`: garantem ciclo de vida econômico, limpeza de órfãos, fluxo de pinning e estado de edição por gestos.
+  - `HomeFragment` e `fragment_home.xml` nunca devem exibir widgets ou controles de edição; com Tela de Widgets em `Desativada`, todos os gestos, navegação e `PinItemActivity` mantêm o comportamento original do Olauncher upstream.

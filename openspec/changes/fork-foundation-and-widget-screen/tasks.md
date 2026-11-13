@@ -108,21 +108,21 @@ Antes de implementar, leia:
 1. `AGENTS.md` e `docs/agents/architecture.md` — preservação da `HomeFragment` e backstack Navigation
 2. `openspec/changes/fork-foundation-and-widget-screen/specs/` e `openspec/changes/fork-foundation-and-widget-screen/design.md` — requisitos RIGID (RF-03, RF-05, RF-06, RF-09, RNF-01) e decisões D1/D2
 
-- [ ] T13 — Criar overlay `activity_main.xml` e `WorkspacePagerDelegate` com `ViewPager2`
+- [x] T13 — Criar overlay `activity_main.xml` e `WorkspacePagerDelegate` com `ViewPager2`
       Arquivos: `app/src/fork/res/layout/activity_main.xml`, `app/src/main/java/app/olauncher/fork/pager/WorkspacePagerDelegate.kt`, `app/src/main/java/app/olauncher/MainActivity.kt`, `app/src/test/java/app/olauncher/fork/pager/WorkspacePagerPolicyTest.kt`
       Mudança: Criar `app/src/fork/res/layout/activity_main.xml` contendo `workspacePager` (`ViewPager2`, `visibility="gone"`) e `nav_host_fragment`; implementar `WorkspacePagerDelegate` gerenciando modo `DISABLED` (recolhe `ViewPager2` e mantém `nav_host_fragment` direto em `mainActivityLayout`) e modos `LEFT`/`RIGHT` (`offscreenPageLimit = 1`, `setHasStableIds(true)`, holders não recicláveis para Home e `WidgetsFragment`), bloqueando `isUserInputEnabled = false` sempre que `NavController.currentDestination?.id != R.id.mainFragment` ou durante drag/resize na `WidgetsFragment`, e reagindo a mudanças de preferência sem vazar estado; adicionar enxerto único `// FORK:widget-screen` em `MainActivity.onCreate()`.
       Cobre: RF-06, AC-05
       Acceptance criteria: `ViewPager2` transiciona lado a lado sobre o papel de parede contínuo quando `LEFT`/`RIGHT`, fica `GONE` quando `DISABLED`, e bloqueia swipe lateral quando o destino do `NavController` é `appListFragment` ou `settingsFragment`.
       Testes: `app/src/test/java/app/olauncher/fork/pager/WorkspacePagerPolicyTest.kt` — testar índice da página Home/Widgets para `LEFT`/`RIGHT`, e regra de `isUserInputEnabled` para destinos `mainFragment`, `appListFragment`, `settingsFragment` e modo edição ativo.
 
-- [ ] T14 — Integrar retorno Back/Home (`onNewIntent`), precedência de swipe e isolamento em `HomeFragment`
+- [x] T14 — Integrar retorno Back/Home (`onNewIntent`), precedência de swipe e isolamento em `HomeFragment`
       Arquivos: `app/src/main/java/app/olauncher/fork/pager/ForkHomeTouchDecorator.kt`, `app/src/main/java/app/olauncher/ui/HomeFragment.kt`, `app/src/main/java/app/olauncher/MainActivity.kt`, `app/src/test/java/app/olauncher/fork/pager/HomeSwipePrecedenceTest.kt`
       Mudança: Conectar retorno à página da Home em `MainActivity.onBackPressedDispatcher` (volta da `WidgetScreen` para a Home antes de checar `navController`) e em `MainActivity.backToHomeScreen()` (cobrindo `onStop`, `onUserLeaveHint` e `onNewIntent` via enxertos `// FORK:widget-screen`); criar `ForkHomeTouchDecorator` para limpar `view.isPressed = false` em `ACTION_CANCEL` quando `ViewPager2` intercepta o gesto sem alterar `OnSwipeTouchListener.kt`/`ViewSwipeTouchListener.kt`; adicionar guardas de linha única `// FORK:widget-screen` em `HomeFragment.initSwipeTouchListener()`, `openSwipeRightApp()` e `openSwipeLeftApp()` impedindo abertura de app no lado reservado aos widgets e mantendo `fragment_home.xml` 100% inalterado.
       Cobre: RF-05, RF-06, RF-09, AC-04, AC-05, AC-08
       Acceptance criteria: Voltar ou botão Home (`onNewIntent`) retorna da `WidgetScreen` para a Home; swipe na direção reservada pelos widgets nunca abre o app de swipe; `fragment_home.xml` permanece inalterado e zero controles de widget existem na `HomeFragment`.
       Testes: `app/src/test/java/app/olauncher/fork/pager/HomeSwipePrecedenceTest.kt` — validar decisão de bloqueio em `openSwipeLeftApp`/`openSwipeRightApp` e comportamento de retorno `onBackPressed`/`onNewIntent` para `WorkspacePagerDelegate`.
 
-- [ ] T15 — Atualizar catálogo final de governança, auditar enxertos `// FORK:` e validar build/testes/lint
+- [x] T15 — Atualizar catálogo final de governança, auditar enxertos `// FORK:` e validar build/testes/lint
       Arquivos: `docs/fork/FORK_INTEGRATION.md`, `docs/fork/FORK_FEATURES.md`
       Mudança: Atualizar `docs/fork/FORK_INTEGRATION.md` com todos os enxertos exatos (`// FORK:fork-identity` e `// FORK:widget-screen`, arquivo, linha aproximada, função e impacto) obtidos via `grep -rn "FORK:" app/src/main/ app/build.gradle`; atualizar `docs/fork/FORK_FEATURES.md` marcando `fork-identity` e `widget-screen` como implementadas com suas regras de não-regressão; executar auditoria completa de build, testes JVM, lint e `openspec validate`.
       Cobre: RF-03, RNF-01, AC-03, AC-09
