@@ -74,28 +74,28 @@ Antes de implementar, leia:
 1. `AGENTS.md` e `docs/agents/architecture.md` — ciclo de vida de Activity/Fragment e delegação
 2. `openspec/changes/fork-foundation-and-widget-screen/specs/widget-screen/spec.md` e `openspec/changes/fork-foundation-and-widget-screen/design.md` — requisitos RIGID (RF-07..RF-09) e decisões D4/D5
 
-- [ ] T09 — Implementar `ForkWidgetHostManager`, limpeza de IDs órfãos e lifecycle em `MainActivity`
+- [x] T09 — Implementar `ForkWidgetHostManager`, limpeza de IDs órfãos e lifecycle em `MainActivity`
       Arquivos: `app/src/main/java/app/olauncher/fork/widgets/ForkWidgetHostManager.kt`, `app/src/main/java/app/olauncher/MainActivity.kt`, `app/src/test/java/app/olauncher/fork/widgets/ForkWidgetHostManagerTest.kt`
       Mudança: Criar `ForkWidgetHostManager` encapsulando `AppWidgetHost` (`FORK_WIDGET_HOST_ID = 1024`), controle idempotente de `isListening` (`startListening()` apenas quando `position != DISABLED && widgets.isNotEmpty()`; `stopListening()` apenas quando `isListening == true`) e limpeza de `appWidgetId` órfãos (`getAppWidgetInfo(id) == null` -> remove de `ForkWidgetPrefs` e chama `deleteAppWidgetId(id)`); adicionar enxertos mínimos `// FORK:widget-screen` em `MainActivity.onStart()` e `MainActivity.onStop()`.
       Cobre: RF-08, AC-07
       Acceptance criteria: `startListening()` não é chamado quando Widgets está `DISABLED` ou vazio; `stopListening()` não é chamado sem `startListening()` prévio; IDs órfãos são removidos e liberados na carga.
       Testes: `app/src/test/java/app/olauncher/fork/widgets/ForkWidgetHostManagerTest.kt` — validar máquina de estado `shouldStartListening` / `shouldStopListening` e algoritmo de filtragem/deleção de IDs órfãos via interface fake.
 
-- [ ] T10 — Implementar fluxo `PICK -> BIND -> CONFIGURE` e pinning externo em `PinItemActivity`
+- [x] T10 — Implementar fluxo `PICK -> BIND -> CONFIGURE` e pinning externo em `PinItemActivity`
       Arquivos: `app/src/main/java/app/olauncher/fork/widgets/ForkWidgetPinDelegate.kt`, `app/src/main/java/app/olauncher/helper/PinItemActivity.kt`, `app/src/main/java/app/olauncher/MainActivity.kt`, `app/src/test/java/app/olauncher/fork/widgets/ForkWidgetPinPolicyTest.kt`
       Mudança: Criar `ForkWidgetPinDelegate` implementando o fluxo `ACTION_APPWIDGET_PICK` -> `bindAppWidgetIdIfAllowed` / `ACTION_APPWIDGET_BIND` -> `ACTION_APPWIDGET_CONFIGURE` (com retorno tratado via enxertos `// FORK:widget-screen` em `MainActivity.onActivityResult` usando request codes reservados) e o tratamento de `PinItemRequest` (`REQUEST_TYPE_APPWIDGET`) em `PinItemActivity`: quando `DISABLED`, exibe `R.string.widgets_not_supported` e finaliza; quando ativo, aloca `appWidgetId`, executa bind/configure assíncrono se necessário, aceita o `PinItemRequest` com `EXTRA_APPWIDGET_ID`, persiste o widget em `ForkWidgetPrefs` e só então finaliza `PinItemActivity`.
       Cobre: RF-08, AC-07
       Acceptance criteria: `PinItemActivity` exibe `R.string.widgets_not_supported` quando `DISABLED` e conclui vinculação + persistência para `REQUEST_TYPE_APPWIDGET` quando ativo; fluxo `PICK -> BIND -> CONFIGURE` na `MainActivity` adiciona e persiste o widget configurado limpando o ID alocado em caso de cancelamento.
       Testes: `app/src/test/java/app/olauncher/fork/widgets/ForkWidgetPinPolicyTest.kt` — testar decisão de pin (`DISABLED` vs `LEFT`/`RIGHT`), cálculo de span inicial a partir de `minWidth`/`minHeight`/`resizeMode` e cleanup em cancelamento.
 
-- [ ] T11 — Criar `ForkAppWidgetHostView` com interceptação de toque longo e feedback tátil
+- [x] T11 — Criar `ForkAppWidgetHostView` com interceptação de toque longo e feedback tátil
       Arquivos: `app/src/main/java/app/olauncher/fork/widgets/ForkAppWidgetHostView.kt`, `app/src/test/java/app/olauncher/fork/widgets/ForkWidgetEditStateTest.kt`
       Mudança: Criar `ForkAppWidgetHostView` estendendo `AppWidgetHostView` com `onInterceptTouchEvent` que detecta toque longo (`ViewConfiguration.getLongPressTimeout()`) respeitando `touchSlop`, cancela em scroll/up, dispara `performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)` e invoca callback de entrada no modo edição (bloqueando cliques acidentais no widget enquanto em edição e evitando interferência com toques normais fora do modo edição).
       Cobre: RF-09, AC-08
       Acceptance criteria: `ForkAppWidgetHostView` dispara callback de toque longo com `HapticFeedbackConstants.LONG_PRESS`, cancela timer se o dedo mover além de `touchSlop` e repassa toques simples para o widget normalmente quando fora do modo edição.
       Testes: `app/src/test/java/app/olauncher/fork/widgets/ForkWidgetEditStateTest.kt` — validar máquina de estado pura de edição (enter/exit edit mode, seleção ativa, limpeza ao tocar fora).
 
-- [ ] T12 — Criar `WidgetsFragment` e `BentoGridLayoutView` com edição por gestos e zero botões estáticos
+- [x] T12 — Criar `WidgetsFragment` e `BentoGridLayoutView` com edição por gestos e zero botões estáticos
       Arquivos: `app/src/main/java/app/olauncher/fork/widgets/WidgetsFragment.kt`, `app/src/main/java/app/olauncher/fork/widgets/BentoGridLayoutView.kt`, `app/src/fork/res/layout/fragment_widgets.xml`, `app/src/fork/res/drawable/fork_widget_edit_border.xml`, `app/src/fork/res/drawable/fork_widget_resize_handle.xml`, `app/src/test/java/app/olauncher/fork/widgets/BentoGridEditActionsTest.kt`
       Mudança: Criar `fragment_widgets.xml` (apenas container `ScrollView` + `BentoGridLayoutView` com fundo transparente para preservar o papel de parede contínuo, sem nenhum botão estático `+` ou `Editar`); implementar `BentoGridLayoutView` medindo a grade com `BentoGridLayoutPlanner` (`widthDp`, colunas `4`/`6`/`8`, células quadradas proporcionais), renderizando `ForkAppWidgetHostView` (centralizado quando `RESIZE_NONE`), tratando toque longo no fundo vazio para abrir `ACTION_APPWIDGET_PICK`, e em modo edição exibindo alças de redimensionamento respeitando mínimos (`2x2` ou `1x`), Drag & Drop para reordenação e badge de remoção com `deleteAppWidgetId`; toque fora dos cards em edição encerra a edição e persiste em `ForkWidgetPrefs`.
       Cobre: RF-07, RF-08, RF-09, AC-06, AC-07, AC-08

@@ -24,6 +24,8 @@ import androidx.navigation.findNavController
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.ActivityMainBinding
+import app.olauncher.fork.widgets.ForkWidgetHostManager // FORK:widget-screen
+import app.olauncher.fork.widgets.ForkWidgetPinDelegate // FORK:widget-screen
 import app.olauncher.helper.getColorFromAttr
 import app.olauncher.helper.hasBeenDays
 import app.olauncher.helper.hasBeenHours
@@ -60,6 +62,8 @@ class MainActivity : AppCompatActivity() {
     private var profileReceiver: BroadcastReceiver? = null
     private var launcherAppsCallback: LauncherApps.Callback? = null
     private var messageDialog: OlDialog? = null
+    private lateinit var forkWidgetHostManager: ForkWidgetHostManager // FORK:widget-screen
+    private lateinit var forkWidgetPinDelegate: ForkWidgetPinDelegate // FORK:widget-screen
 
 //    override fun onBackPressed() {
 //        if (navController.currentDestination?.id != R.id.mainFragment)
@@ -75,6 +79,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         prefs = Prefs(this)
+        forkWidgetHostManager = ForkWidgetHostManager.getInstance(this) // FORK:widget-screen
+        forkWidgetPinDelegate = ForkWidgetPinDelegate(this, forkWidgetHostManager) // FORK:widget-screen
         if (isEinkDisplay()) prefs.appTheme = AppCompatDelegate.MODE_NIGHT_NO
         AppCompatDelegate.setDefaultNightMode(prefs.appTheme)
         super.onCreate(savedInstanceState)
@@ -127,6 +133,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        forkWidgetHostManager.onStart() // FORK:widget-screen
         restartLauncherOrCheckTheme()
     }
 
@@ -168,6 +175,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         isResumed = false
+        forkWidgetHostManager.onStop() // FORK:widget-screen
         backToHomeScreen()
         super.onStop()
     }
@@ -403,6 +411,7 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (forkWidgetPinDelegate.onActivityResult(requestCode, resultCode, data)) return // FORK:widget-screen
         when (requestCode) {
             Constants.REQUEST_CODE_ENABLE_ADMIN -> {
                 if (resultCode == Activity.RESULT_OK)
