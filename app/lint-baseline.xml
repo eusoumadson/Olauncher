@@ -710,17 +710,6 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.fork_add_widget_hint` appears to be unused"
-        errorLine1="    &lt;string name=&quot;fork_add_widget_hint&quot;>Long press empty space to add a widget&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/fork/res/values/strings.xml"
-            line="13"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.instagram` appears to be unused"
         errorLine1="    &lt;string name=&quot;instagram&quot; translatable=&quot;false&quot;>Instagram&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~">
@@ -1175,17 +1164,6 @@
 
     <issue
         id="UseKtx"
-        message="Use the KTX extension property `View.isVisible` instead?"
-        errorLine1="            if (card.visibility == View.VISIBLE &amp;&amp;"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/app/olauncher/fork/widgets/BentoGridLayoutView.kt"
-            line="412"
-            column="17"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
         message="Use the KTX extension function `String.toUri` instead?"
         errorLine1="    intent.data = Uri.parse(url)"
         errorLine2="                  ~~~~~~~~~~~~~~">
@@ -1226,94 +1204,6 @@
             file="src/main/java/app/olauncher/helper/Utils.kt"
             line="599"
             column="19"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view `BentoGridLayoutView` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="    override fun onTouchEvent(event: MotionEvent): Boolean {"
-        errorLine2="                 ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/app/olauncher/fork/widgets/BentoGridLayoutView.kt"
-            line="358"
-            column="18"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``ImageView`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="            handle.setOnTouchListener { _, ev ->"
-        errorLine2="            ^">
-        <location
-            file="src/main/java/app/olauncher/fork/widgets/BentoGridLayoutView.kt"
-            line="566"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="            handle.setOnTouchListener { _, ev ->"
-        errorLine2="                                      ^">
-        <location
-            file="src/main/java/app/olauncher/fork/widgets/BentoGridLayoutView.kt"
-            line="566"
-            column="39"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view `WidgetCardContainer` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="        override fun onTouchEvent(event: MotionEvent): Boolean {"
-        errorLine2="                     ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/app/olauncher/fork/widgets/BentoGridLayoutView.kt"
-            line="674"
-            column="22"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view `ForkAppWidgetHostView` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="    override fun onTouchEvent(event: MotionEvent): Boolean {"
-        errorLine2="                 ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/app/olauncher/fork/widgets/ForkAppWidgetHostView.kt"
-            line="181"
-            column="18"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        View.OnTouchListener { view, event ->"
-        errorLine2="                             ^">
-        <location
-            file="src/main/java/app/olauncher/fork/pager/ForkHomeTouchDecorator.kt"
-            line="19"
-            column="30"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``FrameLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="        binding.mainLayout.setOnTouchListener(wrap(mainListenerFactory(context)))"
-        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/app/olauncher/fork/pager/ForkHomeTouchDecorator.kt"
-            line="32"
-            column="9"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``TextView`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="            appView.setOnTouchListener(wrap(itemListenerFactory(context, appView)))"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/app/olauncher/fork/pager/ForkHomeTouchDecorator.kt"
-            line="44"
-            column="13"/>
     </issue>
 
     <issue

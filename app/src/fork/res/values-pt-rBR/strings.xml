@@ -8,7 +8,6 @@
     <string name="fork_allow_min_width_1">Permitir largura mínima de 1 coluna</string>
     <string name="fork_allow_min_height_1">Permitir altura mínima de 1 linha</string>
     <string name="fork_swipe_reserved_for_widgets">Reservado para a Tela de Widgets</string>
-    <string name="fork_add_widget_hint">Pressione e segure o fundo para adicionar um widget</string>
     <string name="fork_remove_widget">Remover widget</string>
     <string name="fork_github">GitHub do Fork</string>
     <string name="fork_issues">Reportar problema</string>

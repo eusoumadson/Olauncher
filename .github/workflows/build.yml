@@ -32,3 +32,6 @@ jobs:
 
       - name: Run JVM Unit Tests
         run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Run Android Lint
+        run: ./gradlew lintDebug --no-daemon

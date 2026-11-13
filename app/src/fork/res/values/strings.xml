@@ -10,7 +10,6 @@
     <string name="fork_allow_min_width_1">Allow 1-column widget width</string>
     <string name="fork_allow_min_height_1">Allow 1-row widget height</string>
     <string name="fork_swipe_reserved_for_widgets">Reserved for Widget screen</string>
-    <string name="fork_add_widget_hint">Long press empty space to add a widget</string>
     <string name="fork_remove_widget">Remove widget</string>
     <string name="fork_github">Fork GitHub</string>
     <string name="fork_issues">Report issue</string>

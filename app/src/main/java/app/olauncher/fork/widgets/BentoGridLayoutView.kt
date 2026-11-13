@@ -1,5 +1,6 @@
 package app.olauncher.fork.widgets
 
+import android.annotation.SuppressLint
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.graphics.RectF
@@ -16,6 +17,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import app.olauncher.R
 import app.olauncher.helper.dpToPx
 import kotlin.math.abs
@@ -355,6 +357,10 @@ class BentoGridLayoutView @JvmOverloads constructor(
         }
     }
 
+    override fun performClick(): Boolean {
+        return super.performClick()
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val overAnyCard = findCardUnder(event.x, event.y) != null
 
@@ -384,6 +390,7 @@ class BentoGridLayoutView @JvmOverloads constructor(
                 cancelEmptySpaceLongPress()
                 if (!longPressed && !overAnyCard && editStateMachine.isEditing) {
                     exitEditMode(persist = true)
+                    performClick()
                 }
                 return true
             }
@@ -409,7 +416,7 @@ class BentoGridLayoutView @JvmOverloads constructor(
 
     private fun findCardUnder(x: Float, y: Float): WidgetCardContainer? {
         for (card in cardByWidgetId.values) {
-            if (card.visibility == View.VISIBLE &&
+            if (card.isVisible &&
                 x >= card.left && x <= card.right &&
                 y >= card.top && y <= card.bottom
             ) {
@@ -544,6 +551,7 @@ class BentoGridLayoutView @JvmOverloads constructor(
             configureResizeHandle(cornerResizeHandle, handleSize, Gravity.BOTTOM or Gravity.END, ResizeEdge.BOTH)
         }
 
+        @SuppressLint("ClickableViewAccessibility")
         private fun configureResizeHandle(
             handle: ImageView,
             sizePx: Int,
@@ -671,6 +679,7 @@ class BentoGridLayoutView @JvmOverloads constructor(
             }
         }
 
+        @SuppressLint("ClickableViewAccessibility")
         override fun onTouchEvent(event: MotionEvent): Boolean {
             if (!isEditing) return super.onTouchEvent(event)
 

@@ -1,5 +1,6 @@
 package app.olauncher.fork.pager
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.view.MotionEvent
 import android.view.View
@@ -15,6 +16,7 @@ object ForkHomeTouchDecorator {
     fun shouldClearPressedOnAction(actionMasked: Int): Boolean =
         actionMasked == MotionEvent.ACTION_CANCEL
 
+    @SuppressLint("ClickableViewAccessibility")
     fun wrap(delegate: View.OnTouchListener): View.OnTouchListener =
         View.OnTouchListener { view, event ->
             if (shouldClearPressedOnAction(event.actionMasked)) {
@@ -23,6 +25,7 @@ object ForkHomeTouchDecorator {
             delegate.onTouch(view, event)
         }
 
+    @SuppressLint("ClickableViewAccessibility")
     fun decorate(
         binding: FragmentHomeBinding,
         context: Context,

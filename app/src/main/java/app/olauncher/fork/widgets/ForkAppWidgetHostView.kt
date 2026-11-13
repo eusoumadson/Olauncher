@@ -1,5 +1,6 @@
 package app.olauncher.fork.widgets
 
+import android.annotation.SuppressLint
 import android.appwidget.AppWidgetHostView
 import android.content.Context
 import android.view.HapticFeedbackConstants
@@ -178,6 +179,7 @@ class ForkAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (isEditMode || touchTracker.longPressTriggered) {
             if (event.actionMasked == MotionEvent.ACTION_UP ||
