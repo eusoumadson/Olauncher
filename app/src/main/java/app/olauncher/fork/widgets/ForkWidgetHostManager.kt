@@ -6,7 +6,9 @@ import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Bundle
+import android.view.LayoutInflater
 import java.util.concurrent.CopyOnWriteArraySet
 
 /**
@@ -178,7 +180,35 @@ class ForkWidgetHostManager private constructor(context: Context) {
         context: Context,
         appWidgetId: Int,
         appWidgetInfo: AppWidgetProviderInfo? = getAppWidgetInfo(appWidgetId),
-    ): AppWidgetHostView = appWidgetHost.createView(context, appWidgetId, appWidgetInfo)
+    ): AppWidgetHostView = appWidgetHost.createView(
+        createRemoteViewsSafeContext(context),
+        appWidgetId,
+        appWidgetInfo,
+    )
+
+    /**
+     * Shields [RemoteViews] inflation from [androidx.appcompat.app.AppCompatViewInflater] installed
+     * on `AppCompatActivity`'s LayoutInflater (which converts `<ImageView>`/`<TextView>` into
+     * non-`@RemoteView` AppCompat subclasses and crashes third-party widgets), while preserving
+     * Activity theming, configuration, and PendingIntent launch capabilities.
+     */
+    private fun createRemoteViewsSafeContext(context: Context): Context {
+        if (context === appContext) return context
+        val configContext = appContext.createConfigurationContext(context.resources.configuration)
+        val platformInflater = LayoutInflater.from(configContext)
+        return object : ContextWrapper(context) {
+            private var safeInflater: LayoutInflater? = null
+
+            override fun getSystemService(name: String): Any? {
+                if (name == Context.LAYOUT_INFLATER_SERVICE) {
+                    return safeInflater ?: platformInflater.cloneInContext(this).also {
+                        safeInflater = it
+                    }
+                }
+                return super.getSystemService(name)
+            }
+        }
+    }
 
     fun startConfigureActivity(
         activity: Activity,
