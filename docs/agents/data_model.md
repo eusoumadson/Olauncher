@@ -5,47 +5,42 @@
 ## AS IS — Current state
 
 ### Entities
-- `AppModel` (`app/src/main/java/app/olauncher/data/AppModel.kt`):
-  Sealed class hierarchy defining items displayed in launcher lists:
-  - `AppModel.App`:
-    - `appLabel: String` — Localized display label or user-renamed alias.
-    - `key: CollationKey?` — Locale-sensitive collation key for alphabetical ordering.
-    - `appPackage: String` — Unique Android application package identifier.
-    - `activityClassName: String?` — Specific launchable activity component name.
-    - `isNew: Boolean` — True if installed within the past hour (`Constants.ONE_HOUR_IN_MILLIS`).
-    - `user: UserHandle` — Owning Android user or work profile handle.
-  - `AppModel.PinnedShortcut`:
-    - `appLabel: String` — Shortcut label.
-    - `key: CollationKey?` — Collation key for alphabetical sorting.
-    - `appPackage: String` — Package that registered the pinned shortcut.
-    - `shortcutId: String` — Host-assigned shortcut identifier.
-    - `isNew: Boolean` — New install indicator.
-    - `user: UserHandle` — Target user profile handle.
-    - `identity: String` — Derived collision-resistant key generated via `shortcutIdentity()`.
-  - `AppModel.PrivateSpaceHeader`:
-    - `isLocked: Boolean` — Quiet mode lock state of the private profile.
-    - `user: UserHandle` — Private space profile handle (defaults to `Process.myUserHandle()`).
-- `DrawerCharacterModel` (`app/src/main/java/app/olauncher/data/DrawerCharacterModel.kt`):
-  - `character: String` — Fast-scroll alphabetical indicator displayed in drawer sidebar.
-  - `isSelected: Boolean` — Visual selection highlight state.
-- `Prefs` schema (`app/src/main/java/app/olauncher/data/Prefs.kt`):
-  - UI layout options: `homeAppsNum` (Int, range 0..8), `homeAlignment` (Int, Gravity flags), `homeBottomAlignment` (Boolean), `appLabelAlignment` (Int), `statusBar` (Boolean), `dateTimeVisibility` (Int, 0=Off, 1=On, 2=Date Only), `textSizeScale` (Float), `boldFont` (Boolean), `appTheme` (Int, `AppCompatDelegate` mode).
-  - Home slot targets: `appName1..8` (String), `appPackage1..8` (String), `appActivityClassName1..8` (String?), `appUser1..8` (String), `isShortcut1..8` (Boolean), `shortcutId1..8` (String).
-  - Gesture targets: `appNameSwipeLeft/Right`, `appPackageSwipeLeft/Right`, `appActivityClassNameSwipeLeft/Right`, `appUserSwipeLeft/Right`, `isShortcutSwipeLeft/Right`, `shortcutIdSwipeLeft/Right`.
-  - Default utility apps: `clockAppPackage`, `clockAppClassName`, `clockAppUser`, `calendarAppPackage`, `calendarAppClassName`, `calendarAppUser`, `screenTimeAppPackage`, `screenTimeAppClassName`, `screenTimeAppUser`.
-  - Hidden items: `hiddenApps` (`MutableSet<String>`, storing pipe-delimited `<package>|<userHandle>`).
-  - Lifecycle flags: `firstOpen` (Boolean), `firstOpenTime` (Long), `userState` (String), `dailyWallpaper` (Boolean), `dailyWallpaperUrl` (String), `launcherRestartTimestamp` (Long), `screenTimeLastUpdated` (Long).
+
+| Entity | Fields / Variants | Invariants & Notes | Source |
+|---|---|---|---|
+| `AppModel` (sealed) | `App(appLabel, key, appPackage, activityClassName, isNew, user)`, `PinnedShortcut(appLabel, key, appPackage, shortcutId, isNew, user)`, `PrivateSpaceHeader(isLocked, user)` | Implements `Comparable<AppModel>` via `CollationKey` or case-insensitive `appLabel`; `PinnedShortcut.identity` uses `shortcutIdentity()` | `AppModel.kt`, `ShortcutIdentity.kt` |
+| `ForkWidgetEntry` | `appWidgetId: Int`, `colSpan: Int = 2`, `rowSpan: Int = 2`, `order: Int = 0`, `minColSpan: Int = 1`, `minRowSpan: Int = 1`, `resizeMode: Int = 3` | `resizeMode` bitflags: `RESIZE_NONE = 0`, `RESIZE_HORIZONTAL = 1`, `RESIZE_VERTICAL = 2`, `RESIZE_BOTH = 3` | `ForkWidgetModels.kt` |
+| `WidgetScreenPosition` | `DISABLED`, `LEFT`, `RIGHT` | `fromStorageValue(raw)` case-insensitive lookup defaulting to `DISABLED` | `ForkWidgetModels.kt` |
+| `WorkspacePage` | `HOME(1L)`, `WIDGETS(2L)` | Stable IDs for `ViewPager2` `RecyclerView.Adapter` | `WorkspacePagerDelegate.kt` |
+| `GridBreakpoint` & `BentoGridPlan` | `COMPACT(4)`, `MEDIUM(6)`, `EXPANDED(8)`; `BentoGridPlan(columnCount, rowCount, placements: List<WidgetPlacementOutput>)` | `WidgetPlacementOutput` stores `column`, `row`, `colSpan`, `rowSpan`, `minColSpan`, `minRowSpan`, `isFixedSize`, `centerInCell`, `resizableHorizontally`, `resizableVertically` | `BentoGridLayoutPlanner.kt` |
+| `ForkWidgetEditSnapshot` | `isEditing: Boolean = false`, `selectedAppWidgetId: Int? = null` | Managed exclusively by `ForkWidgetEditStateMachine` | `ForkAppWidgetHostView.kt` |
+| `SwipeAppDisplayState` | `label: String`, `isReservedForWidgets: Boolean`, `isDimmed: Boolean`, `canSelectApp: Boolean` | Computed by `ForkSwipePolicy` | `ForkSwipePolicy.kt` |
+| `ComponentForegroundStat` & `SimpleUsageStat` | `beginTime: Long`, `endTime: Long`, `packageName: String`; `day: Long`, `timeUsed: Long`, `applicationId: String` | Built in memory from `UsageEvents` (`EventLogWrapper.kt`); not persisted | `usageStats/*.kt` |
 
 ### Storage
-- Storage engine: Android `SharedPreferences`.
-- Schema location: XML backing file at `/data/data/app.olauncher/shared_prefs/app.olauncher.xml`.
-- Migration tool: Handcrafted procedural migrations within source code (e.g. `upgradeHiddenApps()` in `app/src/main/java/app/olauncher/helper/Utils.kt` migrating legacy pipe-delimited strings to string sets).
+
+- **Engine**: Android `SharedPreferences` file `"app.olauncher"` (`Context.MODE_PRIVATE`), with `android:allowBackup="true"` (`AndroidManifest.xml`, `backup_rules.xml`, `data_extraction_rules.xml`). No SQLite/Room database or migration tool exists.
+- **Upstream schema (`Prefs.kt`)**:
+  - Flags & UI state: `FIRST_OPEN`, `FIRST_OPEN_TIME`, `FIRST_SETTINGS_OPEN`, `FIRST_HIDE`, `USER_STATE`, `LOCK_MODE`, `HOME_APPS_NUM`, `AUTO_SHOW_KEYBOARD`, `KEYBOARD_MESSAGE`, `DAILY_WALLPAPER`, `DAILY_WALLPAPER_URL`, `HOME_ALIGNMENT`, `HOME_BOTTOM_ALIGNMENT`, `APP_LABEL_ALIGNMENT`, `STATUS_BAR`, `DATE_TIME_VISIBILITY`, `SWIPE_LEFT_ENABLED`, `SWIPE_RIGHT_ENABLED`, `HIDDEN_APPS` (`Set<String>` formatted `"package|user"`), `HIDDEN_APPS_UPDATED`, `SHOW_HINT_COUNTER`, `APP_THEME`, `ABOUT_CLICKED`, `RATE_CLICKED`, `WALLPAPER_MSG_SHOWN`, `SHARE_SHOWN_TIME`, `TEXT_SIZE_SCALE`, `BOLD_FONT`, `PRO_MESSAGE_SHOWN`, `HIDE_SET_DEFAULT_LAUNCHER`, `SCREEN_TIME_LAST_UPDATED`, `LAUNCHER_RECREATE_TIMESTAMP`, `SHOWN_ON_DAY_OF_YEAR`.
+  - Home slots `1..8`, swipe left/right, clock, calendar, screen time: `APP_NAME_*`, `APP_PACKAGE_*`, `APP_ACTIVITY_CLASS_NAME_*`, `APP_USER_*`, `IS_SHORTCUT_*`, `SHORTCUT_ID_*`.
+  - Custom app/shortcut rename labels: stored directly under `appPackage` or `shortcutIdentity(...)` string keys (`getAppRenameLabel` / `setAppRenameLabel`).
+- **Fork widget schema (`ForkWidgetPrefs.kt`)**:
+  - `FORK_WIDGET_SCREEN_POSITION` (`String`, `"DISABLED"` | `"LEFT"` | `"RIGHT"`).
+  - `FORK_ALLOW_MIN_WIDTH_1` (`Boolean`, default `false`).
+  - `FORK_ALLOW_MIN_HEIGHT_1` (`Boolean`, default `false`).
+  - `FORK_WIDGET_ENTRIES` (`String`, JSON array encoded/decoded by pure Kotlin `ForkWidgetEntryJson`; malformed JSON decodes to `emptyList()`).
+- **Build metadata file**: `version.properties` stores `VERSION_CODE` and `VERSION_NAME` read by `app/build.gradle` and updated by `app/src/fork/tools/release.py`.
 
 ### Cache
-- In-memory LiveData cache: `MainViewModel` maintains in-memory `appList`, `hiddenApps`, `privateSpaceApps`, and `screenTimeValue` LiveData instances across fragment transitions.
-- Internal disk cache deletion: `MainActivity.restartLauncherOrCheckTheme()` calls `cacheDir.deleteRecursively()` upon triggering a periodic 4-hour activity recreation.
+
+- `MainViewModel` holds in-memory `MutableLiveData` (`appList`, `hiddenApps`, `privateSpaceApps`, `privateSpaceLocked`, `privateSpaceAvailable`, `screenTimeValue`) and throttles `getTodaysScreenTime()` with `prefs.screenTimeLastUpdated.hasBeenMinutes(1)`.
+- `ForkWidgetHostManager` is a process-scoped `@Volatile` singleton caching `AppWidgetHost` (`FORK_WIDGET_HOST_ID = 1024`), `ForkWidgetHostCoordinator.isListening`, and `CopyOnWriteArraySet<() -> Unit>` listeners.
+- `BentoGridLayoutView` caches active `WidgetCardContainer` views in `cardByWidgetId: LinkedHashMap<Int, WidgetCardContainer>` and computed `currentPlan: BentoGridPlan`.
+- `ForkWidgetPinDelegate` tracks pending `ACTION_APPWIDGET_PICK` allocations per `Activity` in a `WeakHashMap<Activity, Int>`.
+- `MainActivity.restartLauncherOrCheckTheme()` clears `cacheDir.deleteRecursively()` every 4 hours (`launcherRestartTimestamp.hasBeenHours(4)`).
 
 ## Related documents
 
-- [`domain_rules.md`](domain_rules.md) — Shortcut identity encoding and slot assignment rules
-- [`architecture.md`](architecture.md) — Single-activity MVVM architecture and data flow
+- [domain_rules.md](domain_rules.md) — Validation, clamping, and migration rules over these models
+- [api_contracts.md](api_contracts.md) — JSON serialization examples and system intent payloads
+- [architecture.md](architecture.md) — Layer ownership of persistence and memory state

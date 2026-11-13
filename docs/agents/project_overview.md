@@ -5,38 +5,45 @@
 ## AS IS — Current state
 
 ### Purpose
-Abacate Launcher (forked from Olauncher) provides an open-source, minimal, ad-free Android home screen that replaces icon grids with a text-based launcher, rapid app searching, and distraction-reducing home shortcuts.
+
+Abacate Lançador (`app.olauncher.abacate`) provides a minimalist, ad-free Android home screen launcher forked from Olauncher with isolated CalVer identity and an optional swipe-adjacent Bento Grid widget workspace.
 
 ### Business problem
-- Cluttered icon grids, notification dots, and widgets encourage habitual phone checking and increased screen time.
-- Traditional launchers consume background memory, battery, and network bandwidth running advertisements, analytics, and news feeds.
-- Complex launchers require extensive setup and maintenance to achieve basic privacy, app hiding, and fast application access.
+
+- Stock Android launchers expose visual clutter, feeds, and tracking; upstream `app.olauncher` lacks dedicated widget hosting and uses the upstream package ID.
+- Package suffixing (`applicationIdSuffix ".abacate"`) lets users install and test the fork side-by-side with upstream `app.olauncher` without uninstalling it.
+- Isolating fork logic in `app/src/main/java/app/olauncher/fork/` and `app/src/fork/res/` keeps upstream syncs (`tanujnotes/Olauncher`) low-conflict while enforcing zero-chrome home screen minimalism.
 
 ### Consumers and integrations
+
 | System | Role |
-| Android OS (`LauncherApps`, `PackageManager`) | Supplies installed applications, shortcut pinning requests, and system package events |
-| Android OS (`DevicePolicyManager`, `AccessibilityService`) | Executes lock screen gestures without administrative timeout delays |
-| Android OS (`UsageStatsManager`) | Provides daily device foreground usage metrics for digital wellbeing display |
-| Remote Wallpapers API (GitHub Gist / Unsplash) | Supplies daily light and dark wallpaper image URLs via WorkManager |
-| End Users | Interacts with text lists, search gestures, swipe app launches, and home shortcut slots |
+|---|---|
+| Android System (`MAIN` / `HOME` / `LAUNCHER`) | Launches `MainActivity` as home screen or app entry (`AndroidManifest.xml`); uses `FakeHomeActivity` for default launcher reset |
+| Android `AppWidgetHost` & `AppWidgetManager` | Allocates `FORK_WIDGET_HOST_ID = 1024`, binds, configures, and hosts third-party widgets on `WidgetsFragment` |
+| Android `LauncherApps` & `UserManager` | Queries installed apps, work/Private Space profiles (`ACCESS_HIDDEN_PROFILES`), and `PinItemActivity` shortcut/widget pin requests |
+| `AccessibilityService` & `DeviceAdminReceiver` | `MyAccessibilityService` locks screen via `GLOBAL_ACTION_LOCK_SCREEN`; `DeviceAdmin` locks screen via `DevicePolicyManager` |
+| `UsageStatsManager` (`EventLogWrapper`) | Aggregates today's foreground screen-time duration when `PACKAGE_USAGE_STATS` is granted |
+| `WallpaperManager` & `HttpURLConnection` | Downloads daily wallpaper metadata JSON (`Constants.URL_WALLPAPERS`) and images every 4h via `WallpaperWorker` |
+| GitHub Releases & Obtainium | Distributes signed release APKs (`AbacateLauncher-<version>-release.apk`) via `.github/workflows/release.yml` and `obtainium://add/...` (`README.md`) |
+| Local CalVer & CI tooling | `app/src/fork/tools/release.py`, `Makefile`, and `.github/workflows/build.yml` manage `version.properties` and test/lint/build pipelines |
 
 ### Macro flow
-1. User triggers the device Home gesture or turns on the device screen.
-2. Android OS starts `MainActivity` via `android.intent.action.MAIN` with category `HOME`.
-3. `MainActivity` initializes `Prefs`, applies theme and font overlays, and requests app list from `MainViewModel`.
-4. `MainViewModel` queries `LauncherApps` and `UserManager` across user profiles on `Dispatchers.IO`, filters hidden apps, and updates `appList` LiveData.
-5. `HomeFragment` renders active home app slots (up to 8 text labels), digital clock, calendar trigger, and daily screen time counter.
-6. User taps a home app or swipes up to `AppDrawerFragment`, entering text into the search bar.
-7. `AppSearchMatcher` executes case-insensitive, diacritic-normalized substring matching to filter the app list in real time.
-8. User selects an app; `MainViewModel.selectedApp` resolves package name and component, delegating launch to `LauncherApps.startMainActivity`.
+
+1. Android delivers `Intent.ACTION_MAIN` (`HOME` / `LAUNCHER`) to `MainActivity`.
+2. `MainActivity.onCreate` initializes `Prefs`, `ForkWidgetHostManager`, `ForkWidgetPinDelegate`, and `WorkspacePagerDelegate` over `activity_main.xml`.
+3. `WorkspacePagerDelegate` keeps `workspacePager` hidden (`View.GONE`) when `WidgetScreenPosition.DISABLED`, or attaches `HomeFragment` (`nav_host_fragment`) and `WidgetsFragment` into `ViewPager2` when `LEFT` or `RIGHT`.
+4. Users launch up to 8 Home apps, swipe vertically for app drawer (`AppDrawerFragment`) or notification shade, long-press empty space for `SettingsFragment`, or swipe horizontally to `WidgetsFragment` when enabled.
+5. `MainViewModel` loads apps/shortcuts asynchronously via `LauncherApps` (`Dispatchers.IO`), persists selections in `SharedPreferences` (`"app.olauncher"`), and schedules `WallpaperWorker` via WorkManager.
 
 ### Out of scope
-- Home screen app widgets: `PinItemActivity` explicitly rejects widget pin requests with `R.string.widgets_not_supported`.
-- Icon packs and graphical icon rendering: the launcher interface is strictly text-based.
-- Telemetry and user analytics: zero tracking SDKs, ad networks, or telemetry services are bundled.
-- Cloud synchronization of preferences or app layouts: settings remain strictly local to device `SharedPreferences`.
+
+- Advertisements, analytics SDKs, and user tracking libraries (`README.md`, `CONTRIBUTING.md`).
+- Inbound HTTP endpoints or background sync servers; network usage is limited to outbound wallpaper JSON/image fetches and user-initiated browser intents (`Constants.kt`, `Utils.kt`).
+- Embedding widgets or edit controls inside `HomeFragment` or `fragment_home.xml` (`docs/fork/FORK_FEATURES.md`).
+- Static `+` or `Edit` buttons on `WidgetsFragment` (`fragment_widgets.xml` uses gesture-only long-press interactions).
 
 ## Related documents
 
-- [`architecture.md`](architecture.md) — Single-activity MVVM structure, directory layout, and component boundaries
-- [`tech_stack.md`](tech_stack.md) — Android SDK versions, Kotlin toolchain, and Gradle dependencies
+- [architecture.md](architecture.md) — System style, package layout, layer boundaries, and runtime flows
+- [domain_rules.md](domain_rules.md) — Launcher rules, swipe precedence, Bento Grid layout, and fork identity
+- [tech_stack.md](tech_stack.md) — Kotlin, Android SDK levels, Gradle toolchain, and test runners

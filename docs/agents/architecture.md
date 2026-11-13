@@ -5,109 +5,100 @@
 ## AS IS — Current state
 
 ### Style
-Single-Activity MVVM (Model-View-ViewModel) architecture leveraging Android Jetpack Navigation, Fragment destinations, Kotlin Coroutines for asynchronous work, and WorkManager for periodic background tasks.
+
+Single-activity Android MVVM architecture (`MainActivity` + `MainViewModel` + Jetpack Navigation fragments) extended with isolated `fork/` delegates and `app/src/fork/res/` resource overlays.
 
 ### Directory layout
-```
-app/src/main/
-├── AndroidManifest.xml                  # Component declarations, permissions, launcher intent filters
-├── java/app/olauncher/
-│   ├── MainActivity.kt                 # Single host Activity managing window insets, nav host, lifecycle
-│   ├── MainViewModel.kt                # Central ViewModel managing app list, settings state, coroutines
-│   ├── data/                           # Data layer and persistent models
-│   │   ├── AppModel.kt                 # Sealed class domain model for launchable apps and shortcuts
-│   │   ├── Constants.kt                # Application constants, intent flags, URLs, dialog keys
-│   │   ├── DrawerCharacterModel.kt     # Drawer fast-scroll alphabet character model
-│   │   ├── Prefs.kt                    # SharedPreferences wrapper for persisted configuration
-│   │   └── ShortcutIdentity.kt         # Length-prefixed collision-resistant shortcut identity builder
-│   ├── helper/                         # Domain helpers, background workers, utility extensions
-│   │   ├── AppFilterHelper.kt          # Interface callback for app list search filtering
-│   │   ├── AppSearchMatcher.kt         # Diacritic-stripping, separator-tolerant search matcher
-│   │   ├── AppUsageStats.kt            # Daily screen time calculation and formatting
-│   │   ├── Dialogs.kt                  # OlDialog modal wrapper and prompt dialog builder
-│   │   ├── Extensions.kt               # Context, View, String, and primitive extension utilities
-│   │   ├── FakeHomeActivity.kt         # Disabled dummy activity toggled to force OS launcher chooser
-│   │   ├── MyAccessibilityService.kt   # Accessibility service handling lock screen gestures in :serviceProcess
-│   │   ├── PinItemActivity.kt          # Trampoline activity confirming shortcut pin requests from external apps
-│   │   ├── SingleLiveEvent.kt          # One-shot LiveData implementation for navigation and dialog events
-│   │   ├── Utils.kt                    # App package enumeration, wallpaper downloaders, system intents
-│   │   ├── WallpaperWorker.kt          # WorkManager CoroutineWorker for periodic wallpaper synchronization
-│   │   ├── WindowBlur.kt               # Window background blur renderer for modern Android versions
-│   │   └── usageStats/                 # UsageStatsManager parsing engine for daily screen time
-│   ├── listener/                       # Touch and system event listeners
-│   │   ├── DeviceAdmin.kt              # DeviceAdminReceiver enabling lock screen via DevicePolicyManager
-│   │   ├── OnSwipeTouchListener.kt     # Directional swipe gesture detector on views
-│   │   └── ViewSwipeTouchListener.kt   # Touch listener translating swipes into launcher actions
-│   └── ui/                             # Presentation layer (Jetpack Fragments and Adapters)
-│       ├── AppDrawerAdapter.kt         # RecyclerView adapter for app list and fast-scroll indexer
-│       ├── AppDrawerFragment.kt        # Searchable app drawer with automatic keyboard invocation
-│       ├── BaseFragment.kt             # Common fragment base class handling lifecycle abstractions
-│       ├── HomeFragment.kt             # Minimalist home screen showing slot apps, clock, and gestures
-│       └── SettingsFragment.kt         # Preferences configuration screens and launcher customization
-└── res/                                # Android layouts, drawables, XML configs, locale strings
+
+```text
+abacate-launcher/
+├── .github/workflows/                 # CI (build.yml) and tag-triggered APK release (release.yml)
+├── app/
+│   ├── build.gradle                   # App module config, .abacate suffix, CalVer properties, lint baseline
+│   ├── lint-baseline.xml              # Baseline isolating upstream Android Lint warnings
+│   └── src/
+│       ├── main/
+│       │   ├── AndroidManifest.xml    # Activities, DeviceAdmin receiver, MyAccessibilityService, permissions
+│       │   ├── java/app/olauncher/
+│       │   │   ├── MainActivity.kt    # Single activity, lifecycle, theme/locale, pager & widget host hooks
+│       │   │   ├── MainViewModel.kt   # Shared LiveData/SingleLiveEvent state, WorkManager, screen time
+│       │   │   ├── data/              # AppModel, Constants, Prefs, shortcutIdentity
+│       │   │   ├── helper/            # Utils, PinItemActivity, FakeHomeActivity, WallpaperWorker, MyAccessibilityService
+│       │   │   │   └── usageStats/    # EventLogWrapper, UnmatchedCloseEventGuardian, foreground stat models
+│       │   │   ├── listener/          # DeviceAdmin, OnSwipeTouchListener, ViewSwipeTouchListener
+│       │   │   ├── ui/                # HomeFragment, AppDrawerFragment, AppDrawerAdapter, SettingsFragment, BaseFragment
+│       │   │   └── fork/
+│       │   │       ├── pager/         # WorkspacePagerDelegate, WorkspacePagerPolicy, ForkHomeTouchDecorator
+│       │   │       ├── settings/      # ForkSettingsDelegate, ForkSwipePolicy
+│       │   │       └── widgets/       # WidgetsFragment, BentoGridLayoutView, BentoGridLayoutPlanner, ForkWidgetHostManager, ForkWidgetPinDelegate, ForkWidgetPrefs, ForkWidgetModels, ForkAppWidgetHostView
+│       │   └── res/                   # Upstream layouts, navigation/nav_graph.xml, drawables, strings, xml
+│       ├── fork/
+│       │   ├── res/                   # Fork overlay resources (activity_main.xml, fork_settings_section.xml, fragment_widgets.xml, strings, accessibility_service_config.xml)
+│       │   └── tools/                 # Python CalVer release script (release.py) and unit tests (test_release.py)
+│       └── test/java/app/olauncher/   # Pure JVM JUnit 4 unit tests (data, helper, fork/*)
+├── docs/fork/                         # Fork integration map (FORK_INTEGRATION.md) and feature catalog (FORK_FEATURES.md)
+├── gradle/libs.versions.toml          # Centralized version catalog
+├── Makefile                           # Local test, dry-run, release, and install targets
+└── version.properties                 # VERSION_CODE and CalVer VERSION_NAME
 ```
 
 ### Layer responsibilities
+
 | Layer | Owns | Does NOT own |
-| Presentation (`ui/`, `MainActivity.kt`) | View binding, user touch gestures, navigation backstack, dialog presentation, window insets | Package querying, background network calls, direct `SharedPreferences` writes |
-| ViewModel (`MainViewModel.kt`) | Observable LiveData state, coroutine scope dispatching, coordination between UI and services | View reference retention, direct canvas drawing, system receiver registration |
-| Data (`data/`) | Domain models (`AppModel`), SharedPreferences access (`Prefs`), immutable constants (`Constants`) | UI presentation logic, Android Context retention beyond application scope |
-| Infrastructure & Helpers (`helper/`, `listener/`) | WorkManager jobs (`WallpaperWorker`), OS inter-process services (`DeviceAdmin`, `MyAccessibilityService`), search normalization | Long-term in-memory view state, UI fragment navigation |
+|---|---|---|
+| Activity & Navigation (`MainActivity`, `nav_graph.xml`) | Window flags, night mode, `OnBackPressedCallback`, `BroadcastReceiver` for Private Space, forwarding `onActivityResult` | Direct grid math, RecyclerView item binding, or widget placement logic |
+| ViewModel (`MainViewModel`) | `MutableLiveData` / `SingleLiveEvent` streams, `viewModelScope` app loading, `WorkManager` scheduling, screen-time queries | View references, fragment transactions, or widget host lifecycle |
+| UI Fragments (`HomeFragment`, `AppDrawerFragment`, `SettingsFragment`, `BaseFragment`) | ViewBinding rendering, touch/click handling, Navigation actions, system dialogs | Direct `AppWidgetHost` binding or `SharedPreferences` raw key schemas |
+| Fork Isolation (`fork/pager`, `fork/settings`, `fork/widgets`) | `ViewPager2` workspace orchestration, Bento Grid planning/editing, `AppWidgetHost` lifecycle, fork settings injection | Upstream home app list rendering or app drawer filtering |
+| Data & Persistence (`Prefs`, `ForkWidgetPrefs`, `AppModel`, `Constants`) | `SharedPreferences` (`"app.olauncher"`) read/write, `ForkWidgetEntryJson` codec, domain models | Android `Context` UI inflation or WorkManager scheduling |
+| System & Background Helpers (`Utils`, `WallpaperWorker`, `PinItemActivity`, `MyAccessibilityService`, `EventLogWrapper`) | `LauncherApps` queries, `HttpURLConnection` wallpaper fetch, `WallpaperManager`, `UsageStatsManager` aggregation, global lock action | Navigation graph routing or `BentoGridLayoutPlanner` state |
 
 ### External integration points
-| System | Client/config | Notes |
-| Android `LauncherApps` | `Context.getSystemService(LAUNCHER_APPS_SERVICE)` | Enumerates installed activities, monitors shortcut changes, and launches applications |
-| Android `UserManager` | `Context.getSystemService(USER_SERVICE)` | Resolves multi-user profiles and handles Android 15+ Private Space quiet mode toggling |
-| Android `UsageStatsManager` | `Context.getSystemService(USAGE_STATS_SERVICE)` | Queries `PACKAGE_USAGE_STATS` foreground activity events to calculate daily screen time |
-| Remote Wallpaper Gist | `Constants.URL_WALLPAPERS` (`HttpURLConnection`) | Fetches JSON catalog of daily light/dark wallpaper URLs in `WallpaperWorker` |
-| Unsplash Fallback CDN | `Constants.URL_DEFAULT_*_WALLPAPER` | Downloads default image asset when Gist query fails |
 
-### Macro flow: Daily Wallpaper Refresh
-```
-+--------------------+       +--------------------+       +------------------------+
-| Android            |       | WallpaperWorker    |       | Prefs (Local Storage)  |
-| WorkManager Queue  | ----> | (CoroutineWorker)  | ----> | Checks appTheme and    |
-+--------------------+       +--------------------+       | last wallpaper URL     |
-                                       |                  +------------------------+
-                                       v
-                             +--------------------+
-                             | Fetch Gist Catalog |
-                             | URL_WALLPAPERS     |
-                             +--------------------+
-                                  |          |
-                         [Success]|          |[Failure]
-                                  v          v
-                     +----------------+  +-------------------+
-                     | Parse Date Key |  | Unsplash Fallback |
-                     | and Wall Type  |  | Image URL         |
-                     +----------------+  +-------------------+
-                                  |          |
-                                  +----+-----+
-                                       |
-                                       v
-                             +--------------------+
-                             | Download Image &   |
-                             | Set Wallpaper via  |
-                             | WallpaperManager   |
-                             +--------------------+
+| System | Client / Config | Notes |
+|---|---|---|
+| Android `AppWidgetHost` | `ForkWidgetHostManager` (`FORK_WIDGET_HOST_ID = 1024`) | `startListening()` in `onStart()` only when enabled and `>= 1` widget saved; `stopListening()` in `onStop()` |
+| Android `LauncherApps` | `MainActivity` callback, `MainViewModel`, `PinItemActivity`, `Utils.kt` | Queries activities, pinned shortcuts, Private Space profiles (`API 35+`), and pin confirmations |
+| Android `WorkManager` | `MainViewModel.setWallpaperWorker()` -> `WallpaperWorker` | Unique periodic work `Constants.WALLPAPER_WORKER_NAME` every 4 hours on `NetworkType.CONNECTED` |
+| Daily Wallpaper JSON & Images | `Utils.kt` (`HttpURLConnection` to `Constants.URL_WALLPAPERS`) | Falls back to `Constants.URL_DEFAULT_DARK_WALLPAPER` / `URL_DEFAULT_LIGHT_WALLPAPER` on failure |
+| Android `UsageStatsManager` | `EventLogWrapper` (`PACKAGE_USAGE_STATS`) | Queries `UsageEvents` on `Dispatchers.IO` with `UnmatchedCloseEventGuardian` |
+| `AccessibilityService` & `DevicePolicyManager` | `MyAccessibilityService`, `DeviceAdmin` | Screen lock via `GLOBAL_ACTION_LOCK_SCREEN` (API 28+) or `DeviceAdmin` |
+
+### Macro flow: Workspace pager, Home, and Widget Screen
+
+```text
++----------------+     swipe / back / onStop     +------------------------+
+|  MainActivity  | ----------------------------> | WorkspacePagerDelegate |
++----------------+                               +------------------------+
+        |                                            |                |
+        | WidgetScreenPosition.DISABLED              | LEFT / RIGHT   |
+        v                                            v                v
++-----------------+                       +----------------+   +-----------------+
+| nav_host_frag   |                       |  HomeFragment  |   | WidgetsFragment |
+| (HomeFragment)  |                       | (nav_host_frag)|   | (BentoGridView) |
++-----------------+                       +----------------+   +-----------------+
+                                                 |                     |
+                                                 v                     v
+                                          ForkHomeTouchDecorator   ForkWidgetHostManager
+                                          ForkSwipePolicy          ForkWidgetPinDelegate
 ```
 
-### Macro flow: App Search and Execution
-```
-+------------------+       +-------------------+       +-----------------------+
-| User types text  | ----> | AppDrawerFragment | ----> | AppDrawerAdapter      |
-| into SearchView  |       | onQueryTextChange |       | filter.filter(query)  |
-+------------------+       +-------------------+       +-----------------------+
-                                                                   |
-                                                                   v
-+-------------------+      +-------------------+       +-----------------------+
-| Terminal:         | <--- | MainViewModel     | <---- | AppSearchMatcher      |
-| LauncherApps      |      | selectedApp(app)  |       | appLabelMatches()     |
-| .startMainActivity|      +-------------------+       | (Normalizer.Form.NFD) |
-+-------------------+                                  +-----------------------+
+### Macro flow: Background wallpaper worker and screen time
+
+```text
++---------------+   4h periodic (CONNECTED)   +-----------------+   HttpURLConnection   +--------------------+
+| MainViewModel | --------------------------> | WallpaperWorker | --------------------> | URL_WALLPAPERS     |
++---------------+                             +-----------------+                       +--------------------+
+        |                                              |
+        | viewModelScope + Dispatchers.IO              v
+        v                                     WallpaperManager.setBitmap (SYSTEM + LOCK)
++-----------------+   UsageEvents.queryEvents  +--------------------+
+| EventLogWrapper | -------------------------> | UsageStatsManager  |
++-----------------+                            +--------------------+
 ```
 
 ## Related documents
 
-- [`project_overview.md`](project_overview.md) — High-level goals, consumers, and scope boundaries
-- [`domain_rules.md`](domain_rules.md) — Search matching algorithms, shortcut serialization, and state machines
+- [project_overview.md](project_overview.md) — High-level purpose, consumers, and scope boundaries
+- [domain_rules.md](domain_rules.md) — Swipe precedence, Bento Grid rules, and widget lifecycle policies
+- [api_contracts.md](api_contracts.md) — Android intent filters, outbound HTTP, and async message contracts

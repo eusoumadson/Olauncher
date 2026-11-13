@@ -5,67 +5,87 @@
 ## AS IS — Current state
 
 ### Overview
-- App drawer real-time text search and diacritic normalization
-- Collision-resistant pinned shortcut identity generation
-- Daily wallpaper scheduling and theme-aware variant selection
-- User onboarding and periodic dialogue progression state machine
-- Home screen app slot assignment and type-specific persistence
-- Android 15+ Private Space visibility and quiet mode authentication lifecycle
 
-### Search matching normalization
-Implementing file: `app/src/main/java/app/olauncher/helper/AppSearchMatcher.kt`
-- Matching executes in two sequential passes:
-  1. Plain case-insensitive substring match (`appLabel.contains(query.trim(), true)`).
-  2. Normalized fallback match: decomposes label and query using Unicode Normalization Form D (`Normalizer.Form.NFD`), strips combining diacritical marks via `\p{InCombiningDiacriticalMarks}+`, and eliminates punctuation and separator characters via `[-_+,.`'\s\p{Z}]`.
-- A query containing only separator characters normalizes to an empty string and returns `false` during the fallback pass, preventing vacuous matches across all labels.
+- Coexistence fork identity (`app.olauncher.abacate` / `app.olauncher.abacate.debug`) with dual display labels and CalVer versioning.
+- Exclusive lateral swipe precedence between upstream swipe-to-app gestures and the dedicated Widget Screen (`ViewPager2`).
+- Deterministic responsive Bento Grid layout (`4`/`6`/`8` columns) with gesture-only editing and economical `AppWidgetHost` lifecycle.
+- Minimalist app/shortcut launching with diacritic/separator-insensitive search, auto-launch rules, Private Space isolation, and day-scoped foreground screen time.
 
-### Pinned shortcut identity encoding
-Implementing file: `app/src/main/java/app/olauncher/data/ShortcutIdentity.kt`
-- Format: `"shortcut:${packageName.length}:$packageName${shortcutId.length}:$shortcutId${user.length}:$user"`.
-- Explicit length prefixes eliminate character boundary ambiguities when package names, shortcut IDs, or user handle strings contain separator characters.
+### Fork identity and package coexistence
 
-### Daily wallpaper scheduling and type resolution
-Implementing file: `app/src/main/java/app/olauncher/helper/WallpaperWorker.kt`, `app/src/main/java/app/olauncher/helper/Utils.kt`
-- Enqueued via WorkManager as `ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE` every 4 hours with linear backoff of 1 hour and network connectivity constraint.
-- Theme resolution determines `wallType`:
-  - `Constants.WALL_TYPE_DARK` if `prefs.appTheme == MODE_NIGHT_YES` or device system dark theme is active.
-  - `Constants.WALL_TYPE_LIGHT` if `prefs.appTheme == MODE_NIGHT_NO` or system light theme is active.
-- URL key resolution:
-  - If app installation age is `< 10` days (`firstOpenTime.isDaySince() < 10`), queries key `"0_<days>"`.
-  - Otherwise, queries `"<month>_<day>"` using English locale date formatting.
-- Falls back to `Constants.URL_DEFAULT_DARK_WALLPAPER` or `Constants.URL_DEFAULT_LIGHT_WALLPAPER` if the Gist query fails.
+- `app/build.gradle` appends `applicationIdSuffix ".abacate"` (`app.olauncher.abacate` release, `app.olauncher.abacate.debug` debug) and reads `VERSION_CODE` (`116`) and `VERSION_NAME` (`2026.11.12`) from `version.properties`.
+- `resValue` defines `fork_app_name` (`"Abacate Lançador"`) and `fork_label_name` (`"Lançador"`); `app/src/fork/res/values/strings.xml` sets `app_name` to `@string/fork_label_name` while `AndroidManifest.xml` labels `MyAccessibilityService` with `@string/fork_app_name`.
+- `app/src/fork/res/xml/accessibility_service_config.xml` whitelists all 4 package names (`app.olauncher.abacate`, `app.olauncher.abacate.debug`, `app.olauncher.debug`, `app.olauncher`).
+- `Constants.kt` adds `URL_FORK_GITHUB` and `URL_FORK_ISSUES` while preserving all upstream URLs (`ForkIdentityConstantsTest`).
+- `app/src/fork/tools/release.py` increments `VERSION_CODE` by `1`, sets `VERSION_NAME` to `YYYY.MM.DD`, extracts matching `CHANGELOG.md` notes, commits `version.properties`, and creates annotated tag `vYYYY.MM.DD` (unless `--dry-run`).
 
-### User state dialogue progression
-Implementing file: `app/src/main/java/app/olauncher/MainActivity.kt:300-335`, `app/src/main/java/app/olauncher/data/Constants.kt`
-- Drives the onboarding and promotional dialog cadence according to install age and user state.
-- Decision matrix:
-  | Current State | Trigger Condition | Next State / Action |
-  | `START` | `firstOpenTime.hasBeenMinutes(10)` | Transitions to `WALLPAPER` |
-  | `WALLPAPER` | `wallpaperMsgShown || dailyWallpaper` | Transitions to `REVIEW` |
-  | `WALLPAPER` | `isOlauncherDefault(this)` is true | Triggers `Constants.Dialog.WALLPAPER` |
-  | `REVIEW` | `rateClicked` is true | Transitions to `SHARE` |
-  | `REVIEW` | `isOlauncherDefault(this) && firstOpenTime.hasBeenHours(1)` | Triggers `Constants.Dialog.REVIEW`, sets state to `RATE` |
-  | `RATE` | `rateClicked` is true | Transitions to `SHARE` |
-  | `RATE` | `isOlauncherDefault(this) && days >= 7 && hourOfDay >= 16` | Triggers `Constants.Dialog.RATE`, sets state to `SHARE` |
-  | `SHARE` | `isOlauncherDefault(this) && days >= 14 && shareDays >= 70 && hourOfDay >= 16` | Triggers `Constants.Dialog.SHARE`, updates `shareShownTime` |
-- To extend: append new state constants to `Constants.UserState`, declare corresponding dialog tag in `Constants.Dialog`, and add branch evaluation to `MainActivity.checkForMessages()`.
+### Swipe precedence and workspace paging matrix
 
-### Home screen slot assignment
-Implementing file: `app/src/main/java/app/olauncher/MainViewModel.kt:127-250`, `app/src/main/java/app/olauncher/data/Prefs.kt`
-- Stores up to 8 user-selected launch targets on the primary home screen.
-- Assignment matrix:
-  | Selected Item | Persisted Fields | Cleared Fields |
-  | `AppModel.App` | `appName<N>`, `appPackage<N>`, `appUser<N>`, `appActivityClassName<N>`, `isShortcut<N> = false` | `shortcutId<N> = ""` |
-  | `AppModel.PinnedShortcut` | `appName<N>`, `appPackage<N>`, `appUser<N>`, `shortcutId<N>`, `isShortcut<N> = true` | `appActivityClassName<N> = null` |
-  | `AppModel.PrivateSpaceHeader` | No-op (action ignored) | None |
+Implemented in `ForkSwipePolicy`, `WorkspacePagerPolicy`, `WorkspacePagerDelegate`, `HomeFragment`, and `SettingsFragment`.
 
-### Private space lifecycle management
-Implementing file: `app/src/main/java/app/olauncher/MainViewModel.kt:476-518`, `app/src/main/java/app/olauncher/MainActivity.kt:113-125`
-- Supported on Android 15+ (`Build.VERSION_CODES.VANILLA_ICE_CREAM`).
-- Lock toggling triggers `UserManager.requestQuietModeEnabled(!isQuietModeEnabled, handle)` and sets `isPrivateSpaceToggling = true` to suppress home screen pop-back during authentication.
-- System broadcasts `ACTION_PROFILE_AVAILABLE` and `ACTION_PROFILE_UNAVAILABLE` reset `isPrivateSpaceToggling` and trigger `getPrivateSpaceAppList()`.
+| `widgetScreenPosition` | `WorkspacePage` order | Home index | Widgets index | Swipe-left app (`openSwipeLeftApp`) | Swipe-right app (`openSwipeRightApp`) |
+|---|---|---|---|---|---|
+| `DISABLED` (default) | `[HOME]` | `0` | `-1` | Active if `swipeLeftEnabled` | Active if `swipeRightEnabled` |
+| `LEFT` | `[WIDGETS, HOME]` | `1` | `0` | Active if `swipeLeftEnabled` | Blocked (`Reserved for Widget screen`) |
+| `RIGHT` | `[HOME, WIDGETS]` | `0` | `1` | Blocked (`Reserved for Widget screen`) | Active if `swipeRightEnabled` |
+
+- `WorkspacePagerPolicy.isUserInputEnabled` returns `true` only when `position.isEnabled && currentDestinationId == R.id.mainFragment && !isWidgetEditInteractionActive`.
+- Pressing Back (`OnBackPressedCallback`), leaving the app (`onStop`, `onUserLeaveHint`), or receiving `onNewIntent` returns `ViewPager2` to the Home page index (`WorkspacePagerDelegate`).
+- To add another workspace page, extend `WorkspacePage` (`stableId`) and update `WorkspacePagerPolicy.pagesFor` and `WorkspacePagerAdapter.onBindViewHolder`.
+
+### Home touch cancellation
+
+- `ForkHomeTouchDecorator` wraps `mainLayout` and `homeApp1`..`homeApp8` touch listeners in `HomeFragment.initSwipeTouchListener()` to set `view.isPressed = false` whenever `MotionEvent.ACTION_CANCEL` fires (such as when `ViewPager2` intercepts a horizontal drag).
+- `HomeFragment` and `fragment_home.xml` never host widgets or widget edit controls.
+
+### Bento Grid responsive layout and span clamping
+
+Implemented in `BentoGridLayoutPlanner`, `ForkWidgetPinPolicy`, `BentoGridEditActions`, and `ForkWidgetEntry`.
+
+| Width (`dp`) | `GridBreakpoint` | Columns |
+|---|---|---|
+| `< 600` | `COMPACT` | `4` |
+| `600..839` | `MEDIUM` | `6` |
+| `>= 840` | `EXPANDED` | `8` |
+
+- Packing uses deterministic first-fit scanning top-to-bottom, left-to-right on a boolean occupancy matrix with zero overlap (`BentoGridLayoutPlanner.plan`).
+- Minimum span floor defaults to `2x2` (`DEFAULT_MIN_SPAN = 2`); `allowMinWidth1` / `allowMinHeight1` lower the floor on that axis to `1`.
+- Initial placement on pick/pin converts `minWidth`/`minHeight` dp via `ceil((dp + 30.0) / 70.0)`, clamping initial `colSpan` to `[floorCol, 4]` (`ForkWidgetPinPolicy.calculateInitialEntry`).
+- Resize bounds: `colSpan` clamps to `[effectiveMinCol, columnCount]` and `rowSpan` clamps to `[effectiveMinRow, 8]` (`BentoGridEditActions.MAX_ROW_SPAN = 8`).
+- `resizeMode` (`RESIZE_NONE = 0`, `RESIZE_HORIZONTAL = 1`, `RESIZE_VERTICAL = 2`, `RESIZE_BOTH = 3`) controls handle visibility; `RESIZE_NONE` widgets get `isFixedSize = true`, `centerInCell = true`, and no resize handles.
+
+### Gesture-only widget editing
+
+Implemented in `ForkAppWidgetHostView`, `ForkWidgetEditStateMachine`, `BentoGridLayoutView`, and `WidgetsFragment`.
+
+- Long-press on empty `BentoGridLayoutView` space (when not editing, respecting `touchSlop`) triggers `ForkWidgetPinDelegate.startWidgetPicker`.
+- Long-press on a `ForkAppWidgetHostView` triggers `HapticFeedbackConstants.LONG_PRESS` and enters edit mode (`ForkWidgetEditStateMachine.enterEditMode`), showing edit borders, remove badge (`ic_close`), and permitted resize handles while blocking inner widget clicks (`onInterceptTouchEvent` returns `true`).
+- Dragging a card reorders by drop target center (`BentoGridEditActions.findDropTargetWidgetId` + `reorderByDrop`); dragging a resize handle calls `BentoGridEditActions.resizeWidget`; tapping outside cards exits edit mode and persists `order`, `colSpan`, and `rowSpan`.
+
+### AppWidgetHost lifecycle and widget pinning
+
+Implemented in `ForkWidgetHostCoordinator`, `ForkWidgetHostManager`, `ForkWidgetPinDelegate`, and `PinItemActivity`.
+
+- `ForkWidgetHostCoordinator.shouldStartListening` returns `true` only when `position.isEnabled && hasWidgets && !currentlyListening`; `onStop()` stops listening only when currently listening.
+- `pruneOrphanedWidgets()` removes entries lacking `AppWidgetManager.getAppWidgetInfo(id)` and calls `deleteAppWidgetId(id)`.
+- In-app addition runs `ACTION_APPWIDGET_PICK` (`1901`) -> optional `ACTION_APPWIDGET_BIND` (`1902`) -> optional `ACTION_APPWIDGET_CONFIGURE` (`1903`).
+- External `PinItemActivity` handles `REQUEST_TYPE_SHORTCUT` (`pinItemRequest.accept()`) and, on API `>= 26`, `REQUEST_TYPE_APPWIDGET` via `ForkWidgetPinDelegate` (`1904`/`1905`) when `widgetScreenPosition.isEnabled`, or shows `R.string.widgets_not_supported` when `DISABLED`. Failed or cancelled flows delete the allocated `appWidgetId`.
+
+### App drawer search, auto-launch, and shortcut identity
+
+- `AppSearchMatcher.appLabelMatches(appLabel, query)` matches case-insensitive trimmed substrings or NFD-normalized strings stripped of combining diacritical marks (`\p{InCombiningDiacriticalMarks}+`) and separators (`[-_+,.`'\s\p{Z}]`).
+- `AppDrawerAdapter` suppresses auto-launch when query starts with `" "` (`!charSearch.startsWith(" ")`) or `"!"` (`isBangSearch`), or when `flag != FLAG_LAUNCH_APP`; otherwise it auto-launches when `itemCount == 1` and the item is a non-empty app/shortcut (`autoLaunchedQuery` prevents duplicate launches on list refresh).
+- `shortcutIdentity(packageName, shortcutId, user)` encodes `"shortcut:${packageName.length}:$packageName${shortcutId.length}:$shortcutId${user.length}:$user"` to prevent collisions across packages, shortcut IDs, and user profiles (`ShortcutIdentity.kt`, `AppModel.PinnedShortcut`).
+
+### Private Space, hidden apps, and screen time
+
+- On Android 15+ (`VANILLA_ICE_CREAM`), `Utils.kt` excludes Private Space profiles (`android.os.usertype.profile.PRIVATE`) from the regular app/shortcut list and exposes them separately via `MainViewModel.getPrivateSpaceAppList()`, refreshed on `ACTION_PROFILE_AVAILABLE` / `ACTION_PROFILE_UNAVAILABLE` broadcasts (`MainActivity.kt`).
+- `MainViewModel.isPrivateSpaceToggling` suppresses `backToHomeScreen()` during lock/unlock authentication (`MainActivity.kt`).
+- `upgradeHiddenApps()` migrates legacy package-only entries to `packageName|userHandle` (`Utils.kt`), and `getAppsList()` always filters out `BuildConfig.APPLICATION_ID`.
+- `MainViewModel.getTodaysScreenTime()` throttles refreshes to once per minute (`hasBeenMinutes(1)`) unless `screenTimeValue.value == null`, querying `[00:00 today, now]` via `EventLogWrapper` on `Dispatchers.IO`.
 
 ## Related documents
 
-- [`architecture.md`](architecture.md) — Single-activity MVVM structure and component layout
-- [`data_model.md`](data_model.md) — Domain entities and SharedPreferences storage schema
+- [data_model.md](data_model.md) — Persisted widget JSON schema, `Prefs` keys, and domain models
+- [api_contracts.md](api_contracts.md) — Android intent contracts, widget pin requests, and JSON payloads
+- [architecture.md](architecture.md) — Component wiring and lifecycle flows

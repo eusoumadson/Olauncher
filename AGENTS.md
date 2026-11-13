@@ -15,76 +15,88 @@
 
 | Command | Purpose |
 |---|---|
-| `./gradlew assembleDebug` | Build debug APK |
-| `./gradlew testDebugUnitTest` | Run JVM unit tests with JUnit 4 |
+| `./gradlew assembleDebug --no-daemon` | Build debug APK (`app.olauncher.abacate.debug`) |
+| `./gradlew installDebug --no-daemon` | Install debug APK on connected device |
+| `./gradlew testDebugUnitTest --no-daemon` | Run JVM unit tests (JUnit 4.13.2) |
+| `python3 -m unittest app/src/fork/tools/test_release.py` | Run release CLI Python unit tests |
+| `make test` | Run JVM (`testDebugUnitTest`) and Python (`test_release.py`) suites |
+| `./gradlew lintDebug --no-daemon` | Run AGP 8.9.1 Android Lint (`app/lint-baseline.xml`) |
+| `python3 app/src/fork/tools/release.py --dry-run` | Preview CalVer bump and release commit/tag |
+| `python3 app/src/fork/tools/release.py` | Execute CalVer bump, commit, and tag |
 
-- Test framework: JUnit 4 (4.13.2 via AndroidJUnitRunner / JVM test task).
-- Assertions: `org.junit.Assert` (`assertEquals`, `assertNotEquals`, `assertTrue`, `assertFalse`).
-- Test suite location: `app/src/test/java/app/olauncher`.
-- Lint tool: None configured.
-- Coverage tool: None configured.
+- Test runners: JUnit `4.13.2` (`org.junit.Assert`, `app/src/test/java/app/olauncher/`) and Python `unittest` (`app/src/fork/tools/test_release.py`).
+- Mocking: None configured; tests use pure Kotlin classes and hand-rolled in-memory fakes.
+- Lint: AGP `8.9.1` Android Lint configured in `app/build.gradle` with `app/lint-baseline.xml` isolating upstream warnings; enforced in `.github/workflows/build.yml`. No `ktlint` or `detekt`.
+- Coverage: None configured.
 
 ## 2. Code Style & Project Conventions
 
-- Kotlin version: 2.1.20 targeting Java 17 (`gradle/libs.versions.toml`, `app/build.gradle`).
-- Android SDK: compileSdk 36, targetSdk 36, minSdk 24 (`app/build.gradle`).
-- Linter / Formatter: No ktlint or detekt config present; match the style of the file being edited (`CONTRIBUTING.md`).
-- Architectural pattern: Model-View-ViewModel (MVVM) with Jetpack Navigation and AndroidX ViewModel coroutines integration (`androidx.lifecycle:lifecycle-viewmodel-ktx`).
-- Persistence pattern: SharedPreferences encapsulated within `app.olauncher.data.Prefs`.
-- Background processing: AndroidX WorkManager `CoroutineWorker` (`app.olauncher.helper.WallpaperWorker`).
+- Language & SDK: Kotlin `2.1.20` targeting Java `17` (`gradle/libs.versions.toml`, `app/build.gradle`); Android `compileSdk 36`, `targetSdk 36`, `minSdk 24`; Python `3` (`app/src/fork/tools/release.py`).
+- Style & formatting: `kotlin.code.style=official` (`gradle.properties`); no `.editorconfig`, `ktlint`, or `detekt` (`CONTRIBUTING.md`).
+- CI enforcement: `.github/workflows/build.yml` runs `test_release.py`, `assembleDebug`, `testDebugUnitTest`, and `lintDebug`; `.github/workflows/release.yml` builds signed release APKs on `v*` tags.
+- Architecture & state: Single-activity MVVM (`MainActivity`, `MainViewModel`, Jetpack Navigation, `ViewPager2`, ViewBinding), SharedPreferences in `app.olauncher.data.Prefs` (delegating widget state to `ForkWidgetPrefs`), WorkManager `CoroutineWorker` (`WallpaperWorker`).
+- Fork isolation: Keep fork Kotlin code in `app/src/main/java/app/olauncher/fork/`, release scripts in `app/src/fork/tools/`, and resource overlays in `app/src/fork/res/` (`debug`/`release` sourceSets in `app/build.gradle`); shared files allow only minimal `FORK:<feature>` grafts ([docs/fork/FORK_INTEGRATION.md](docs/fork/FORK_INTEGRATION.md)).
 - Detailed conventions: See [docs/agents/coding_guidelines.md](docs/agents/coding_guidelines.md).
 
 ## 3. Agent Communication & Behavioral Guidelines
 
-- Keep pull requests focused on one concern per PR; propose non-trivial changes via an issue or GitHub Discussion before implementation (`CONTRIBUTING.md`).
-- Run `./gradlew assembleDebug` and `./gradlew testDebugUnitTest` locally before submitting changes; no CI service runs on this repository (`CONTRIBUTING.md`).
-- Maintain minimalism and ad-free design; do not expose niche features by default (`CONTRIBUTING.md`, `README.md`).
+- Keep PRs single-concern; propose non-trivial changes via issue or discussion first (`CONTRIBUTING.md`).
+- Run `make test`, `./gradlew assembleDebug --no-daemon`, and `./gradlew lintDebug --no-daemon` locally to match `.github/workflows/build.yml`.
+- Audit fork grafts with `grep -rn "FORK:" app/src/main/ app/build.gradle gradle/libs.versions.toml` and update [docs/fork/FORK_INTEGRATION.md](docs/fork/FORK_INTEGRATION.md) and [docs/fork/FORK_FEATURES.md](docs/fork/FORK_FEATURES.md) when modifying fork touchpoints.
 
 ### Never in this repository
 
-- Never introduce advertisements, analytics SDKs, or user tracking libraries (`README.md`, `CONTRIBUTING.md`).
-- Never submit changes that break `./gradlew assembleDebug` or `./gradlew testDebugUnitTest` (`CONTRIBUTING.md`).
-- Never introduce dependencies or code incompatible with GNU GPLv3 licensing (`LICENSE`, `CONTRIBUTING.md`).
+- Never introduce advertisements, analytics SDKs, user tracking, or GNU GPLv3-incompatible dependencies (`README.md`, `CONTRIBUTING.md`, `LICENSE`).
+- Never break `.github/workflows/build.yml` gates (`test_release.py`, `assembleDebug`, `testDebugUnitTest`, `lintDebug`).
+- Never place fork-only Kotlin code outside `app/src/main/java/app/olauncher/fork/`, place fork resources in `app/src/main/res/` instead of `app/src/fork/res/`, or edit upstream files without `FORK:<feature>` markers (`docs/fork/FORK_INTEGRATION.md`).
+- Never retain dead code, legacy aliases, compatibility shims, or orphan fallbacks after a refactor or migration (`docs/fork/FORK_INTEGRATION.md`).
 
 ### Fork Isolation & Zero Compatibility Trash Policy
 
-- **Isolamento do Fork**: Todo código exclusivo do fork deve residir em `app/src/main/java/app/olauncher/fork/` e todo recurso exclusivo em `app/src/fork/res/` (overlay `debug` e `release`). Arquivos compartilhados com o upstream só podem receber enxertos mínimos de linha única demarcados com `// FORK:<feature>` (ou `<!-- FORK:<feature> -->` em XML e `# FORK:<feature>` em TOML/YAML), usando os padrões Delegate/Decorator e catalogados em [docs/fork/FORK_INTEGRATION.md](docs/fork/FORK_INTEGRATION.md).
-- **Zero Lixo de Compatibilidade**: Nunca manter código morto, aliases legados, shims de retrocompatibilidade inúteis ou fallbacks órfãos após uma refatoração ou migração; ao substituir um fluxo ou recurso do fork, remova completamente os vestígios obsoletos no mesmo PR.
+- **Fork Isolation**: All fork-exclusive Kotlin code must reside in `app/src/main/java/app/olauncher/fork/` and all fork-exclusive resources in `app/src/fork/res/` (`debug` and `release` overlays). Shared upstream files may only receive minimal single-line grafts marked with `// FORK:<feature>` (Kotlin/Gradle), `<!-- FORK:<feature> -->` (XML), or `# FORK:<feature>` (TOML/YAML), using Delegate/Decorator patterns and cataloged in [docs/fork/FORK_INTEGRATION.md](docs/fork/FORK_INTEGRATION.md).
+- **Zero Compatibility Trash**: Never keep dead code, legacy aliases, useless retrocompatibility shims, or orphan fallbacks after a refactoring or migration; remove obsolete traces completely in the same PR.
 
 ## 4. Setup, Troubleshooting and Tips
 
-- Prerequisites: JDK 17, Android SDK with API 36 platform and build-tools installed.
-- Setup and build:
+- Prerequisites: JDK `17`, Android SDK API `36` platform and build-tools, Gradle `8.11.1` wrapper, Python `3`.
+- Setup and local check:
 
 ```sh
-./gradlew assembleDebug
+./gradlew assembleDebug --no-daemon
+make test
+./gradlew lintDebug --no-daemon
 ```
 
 | Symptom | Check |
 |---|---|
-| JVM target version mismatch | Ensure Java 17 is selected in the shell environment (`java -version`). |
-| Android SDK platform 36 not found | Install API level 36 platforms and build-tools via Android SDK manager. |
-| Gradle wrapper permission error | Ensure execute permissions on wrapper script (`chmod +x gradlew`). |
+| JVM target mismatch | Verify JDK 17 is active (`java -version`). |
+| Android SDK platform 36 missing | Install API 36 platform and build-tools via Android SDK manager. |
+| Gradle wrapper permission denied | Restore execute permission (`chmod +x gradlew`). |
+| `lintDebug` failure on new code | Fix new lint issues rather than expanding `app/lint-baseline.xml`. |
+| Upstream merge conflict in shared file | Keep upstream changes, reapply `FORK:<feature>` grafts per `docs/fork/FORK_INTEGRATION.md`, audit with `grep -rn "FORK:" app/src/main/ app/build.gradle gradle/libs.versions.toml`. |
 
 ## 5. References
 
 | Doc | Purpose |
 |---|---|
-| [README.md](README.md) | Project overview, fork attribution, and feature details |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution workflow, PR guidelines, and local verification requirements |
-| [LICENSE](LICENSE) | GNU General Public License v3 terms |
+| [README.md](README.md) | Project overview, Obtainium install link, build/test commands, GPLv3 attribution |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Upstream contribution workflow, PR scope, local verification, GPLv3 terms |
+| [CHANGELOG.md](CHANGELOG.md) | CalVer release history (`## [2026.11.12]`) |
+| [LICENSE](LICENSE) | GNU General Public License v3.0 |
+| [docs/fork/FORK_INTEGRATION.md](docs/fork/FORK_INTEGRATION.md) | Catalog of `FORK:<feature>` graft points, `app/src/fork/res/` overlays, upstream sync guide |
+| [docs/fork/FORK_FEATURES.md](docs/fork/FORK_FEATURES.md) | Fork feature catalog (`fork-identity`, `widget-screen`) and non-regression rules |
 
 ## 6. Agent Documentation
 
 | File | Content |
 |---|---|
-| [docs/agents/project_overview.md](docs/agents/project_overview.md) | High-level project summary, minimal launcher philosophy, and fork attribution |
-| [docs/agents/architecture.md](docs/agents/architecture.md) | Android system architecture, UI components, background services, and navigation flow |
-| [docs/agents/tech_stack.md](docs/agents/tech_stack.md) | Language versions, SDK levels, Android Gradle Plugin, and build toolchain |
-| [docs/agents/coding_guidelines.md](docs/agents/coding_guidelines.md) | Kotlin conventions, style guidelines, and code organization rules |
-| [docs/agents/domain_rules.md](docs/agents/domain_rules.md) | Launcher domain logic, search matching, private space rules, and shortcut handling |
-| [docs/agents/api_contracts.md](docs/agents/api_contracts.md) | Android system intent contracts, broadcasts, and service interfaces |
-| [docs/agents/data_model.md](docs/agents/data_model.md) | Data models, SharedPreferences schema, and shortcut identity structures |
-| [docs/agents/dependencies.md](docs/agents/dependencies.md) | Production and development dependency catalogue with versions and purposes |
+| [docs/agents/project_overview.md](docs/agents/project_overview.md) | Project purpose, problem statement, consumers/integrations, macro flow, and scope |
+| [docs/agents/architecture.md](docs/agents/architecture.md) | MVVM structure, directory layout, layer responsibilities, and launcher macro flows |
+| [docs/agents/tech_stack.md](docs/agents/tech_stack.md) | Runtime, Kotlin/Java/Android SDK versions, test runners, and external integrations |
+| [docs/agents/coding_guidelines.md](docs/agents/coding_guidelines.md) | Kotlin patterns, LiveData/coroutine conventions, prefs isolation, and fork rules |
+| [docs/agents/domain_rules.md](docs/agents/domain_rules.md) | Search normalization, shortcut identity encoding, wallpaper rules, home slots, private space |
+| [docs/agents/api_contracts.md](docs/agents/api_contracts.md) | Android system launcher/service integration note (no HTTP/RPC/CLI API contracts) |
+| [docs/agents/data_model.md](docs/agents/data_model.md) | Data entities, SharedPreferences storage, and in-memory cache structures |
+| [docs/agents/dependencies.md](docs/agents/dependencies.md) | External services and shared AndroidX/Gradle library dependencies |
 
 _End of AGENTS.md_
